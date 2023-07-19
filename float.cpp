@@ -206,11 +206,13 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
     mysoplex.setIntParam(SoPlex::OBJSENSE, SoPlex::OBJSENSE_MINIMIZE);
 
     /* we first add variables */
-    DSVector dummycol(0);
+    DSVectorRational dummycol(0);
     for (int i = 0; i < 3; i++)
     {
-        auto column = LPColReal(1.0, dummycol, infinity, -infinity);
-        mysoplex.addColReal(column);
+        auto column = LPColRational(1.0, dummycol, infinity, -infinity);
+        mysoplex.addColRational(column);
+        // auto column = LPColReal(1.0, dummycol, infinity, -infinity);
+        // mysoplex.addColReal(column);
     }
 
     /* then constraints one by one */
@@ -222,7 +224,8 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
         row1.add(0, 1.0);
         row1.add(1, 1.0);
         row1.add(2, 1.0);
-        mysoplex.addRowReal(LPRow(mpfr_get_d1(L.at(i).lower), row1, mpfr_get_d1(L.at(i).upper)));
+        mysoplex.addRowRational(LPRowRational(L.at(i).lower, row1, L.at(i).upper));
+        // mysoplex.addRowRational(LPRow(mpfr_get_d1(L.at(i).lower), row1, mpfr_get_d1(L.at(i).upper)));
     }
 
     // DSVector row1(2);
