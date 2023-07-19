@@ -1,1 +1,5 @@
-g++ -O0 -Wall --std=c++14 -L/usr/lib -o cc compute_correct.cpp -lmpfr -lgmp ; ./cc
+sudo docker run -it jpl169/pldi2022artifact:latest
+
+cd pldi2022artifact/polynomial_gen/
+
+g++ -O2 -I/home/soplex-4.0.1//src/ -std=c++11 float.cpp  /home/soplex-4.0.1//build/lib/libsoplex.a -o float -lgmp -lz -lm -lmpfr
