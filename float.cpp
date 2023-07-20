@@ -221,9 +221,13 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
 
     {
         DSVector row1(2);
-        row1.add(0, 1.0);
-        row1.add(1, 1.0);
-        row1.add(2, 1.0);
+        for (int i = 0; i < 3; i++)
+        {
+            // calcuate power of x using L.at(i).x
+
+            row1.add(0, 1.0);
+        }
+
         mysoplex.addRowRational(LPRowRational(L.at(i).lower, row1, L.at(i).upper));
         // mysoplex.addRowRational(LPRow(mpfr_get_d1(L.at(i).lower), row1, mpfr_get_d1(L.at(i).upper)));
     }
