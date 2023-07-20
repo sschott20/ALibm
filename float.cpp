@@ -188,7 +188,7 @@ vector<RedInterval> CalcRedIntervals(vector<RndInterval> L)
 
 Polynomial GeneratePolynomial(vector<RedInterval> L)
 {
-
+    int termsize = 1;
     SoPlex mysoplex;
     mysoplex.setBoolParam(SoPlex::RATFACJUMP, true);
     mysoplex.setIntParam(SoPlex::SOLVEMODE, 2);
@@ -207,7 +207,7 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
 
     /* we first add variables */
     DSVectorRational dummycol(0);
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < termsize; i++)
     {
         auto column = LPColRational(1.0, dummycol, infinity, -infinity);
         mysoplex.addColRational(column);
@@ -218,47 +218,52 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
     /* then constraints one by one */
     // for (int i = 0; i < L.size(); i++)
     for (int i = 0; i < 10; i++)
-
     {
-        DSVector row1(2);
-        for (int i = 0; i < 3; i++)
+        DSVectorRational row1(2);
+        for (int j = 0; j < termsize; j++)
         {
-            // calcuate power of x using L.at(i).x
+            // x = L.at(i).x
 
-            row1.add(0, 1.0);
+            // create mpfr_t x with 500 precision, which is the same as the precision of L.at(i).x
+            mpfr_t x;
+            mpfr_init2(x, 500);
+            mpfr_set(x, L.at(i).x, MPFR_RNDN);
+
+            // set x to b x ^ j using mpfr
+            mpfr_pow_si(x, x, j, MPFR_RNDN);
+
+            row1.add(j, mpfr_get_d1(x));
         }
-
-        mysoplex.addRowRational(LPRowRational(L.at(i).lower, row1, L.at(i).upper));
-        // mysoplex.addRowRational(LPRow(mpfr_get_d1(L.at(i).lower), row1, mpfr_get_d1(L.at(i).upper)));
+        double lbnd = mpfr_get_d1(L.at(i).lower);
+        double ubnd = mpfr_get_d1(L.at(i).upper);
+        // print x
+        // mpfr_out_str(stdout, 10, 0, L.at(i).x, MPFR_RNDN);
+        mysoplex.addRowRational(LPRowRational(lbnd, row1, ubnd));
     }
 
-    // DSVector row1(2);
-    // row1.add(0, 1.0);
-    // row1.add(1, 5.0);
-    // row1.add(2, 5.0);
-    // mysoplex.addRowReal(LPRow(100.0, row1, infinity));
-
-    /* write LP in .lp format */
     mysoplex.writeFileReal("dump.lp", NULL, NULL, NULL);
 
     /* solve LP */
     SPxSolver::Status stat;
     DVector prim(2);
     DVector dual(1);
+    printf("Starting to optimize poly\n");
     stat = mysoplex.optimize();
+    printf("status = %d\n", stat);
 
-    /* get solution */
+    /* get polynomial coeficiants from soplex solution */
+
     if (stat == SPxSolver::OPTIMAL)
     {
-        mysoplex.getPrimalReal(prim);
-        mysoplex.getDualReal(dual);
+
+        mysoplex.getPrimalRational(prim);
+        mysoplex.getDualRational(dual);
         std::cout << "LP solved to optimality.\n";
-        std::cout << "Objective value is " << mysoplex.objValueReal() << ".\n";
+        std::cout << "Objective value is " << mysoplex.objValueRational() << ".\n";
         std::cout << "Primal solution is [" << prim[0] << ", " << prim[1] << "].\n";
         std::cout << "Dual solution is [" << dual[0] << "].\n";
     }
     Polynomial P;
-
     return P;
 }
 
