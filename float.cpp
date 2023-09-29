@@ -9,25 +9,31 @@
 #include <soplex.h>
 #include <cstdlib>
 
+#define SAMPLE_START 1.01
+#define SAMPLE_END 1.04
+
 using namespace std;
 using namespace soplex;
 
 struct RndInterval
 {
-    float x;
-    mpfr_t lower;
-    mpfr_t upper;
+    float x_orig;
+    float y;
+
+    double l;
+    double u;
+
+    double x_rr;
+    double yp;
+    double lp;
+    double up;
 };
 
-struct RedInterval
+typedef union
 {
-    mpfr_t x;
-    mpfr_t lower;
-    mpfr_t upper;
-    float x_orig;
-    mpfr_t l_orig;
-    mpfr_t u_orig;
-};
+    float f;
+    int i;
+} floatX;
 
 struct Polynomial
 {
@@ -35,29 +41,86 @@ struct Polynomial
     vector<double> coefficients;
 };
 
-union float_bits {
-    float f;
-    uint32_t i;
-};
-
-
-vector<RndInterval> GenerateFloatSample()
+int write_rnd_interval_to_file(vector<RndInterval> X, const char *filename)
 {
+    FILE *fptr;
+    fptr = fopen(filename, "wb");
+
+    for (size_t i = 0; i < X.size(); i++)
+    {
+
+        fwrite(&X.at(i), sizeof(RndInterval), 1, fptr);
+    }
+    fclose(fptr);
+
+    return 0;
+}
+vector<RndInterval> read_rnd_interval_from_file(const char *filename)
+{
+    vector<RndInterval> X;
+    FILE *fptr;
+    fptr = fopen(filename, "rb");
+    RndInterval x1;
+
+    while (fread(&x1, sizeof(RndInterval), 1, fptr) == 1)
+    {
+        X.push_back(x1);
+    }
+    fclose(fptr);
+
+    return X;
+}
+
+double RangeReduction(float x)
+{
+    int exp;
+    double sig = frexp(x, &exp);
+    return sig;
+}
+
+double OutputCompensation(float x, double yp)
+{
+    int exp;
+    double sig = frexp(x, &exp);
+    return yp + exp;
+}
+
+double InverseOutputCompensation(float x, double yp)
+{
+    int exp;
+    double sig = frexp(x, &exp);
+    return yp - exp;
+}
+
+vector<RndInterval> GenerateFloatSample(float start, float end, size_t cap, size_t step)
+{
+    FILE *fptr;
+    fptr = fopen("dump/GenFloatSample.txt", "w");
+
     vector<RndInterval> X;
     size_t n = 0;
 
-    for (float floatValue = 1; floatValue <= 1.1;
-         floatValue = nextafterf(floatValue, INFINITY))
+    for (float f = start; f < end;
+         f = nextafterf(f, INFINITY))
     {
-        n++;
-        RndInterval I;
-        I.x = floatValue;
-        X.push_back(I);
-        for (int i = 0; i < 100; i++)
+        if (n > cap)
         {
-            floatValue = nextafterf(floatValue, INFINITY);
+            break;
         }
 
+        n++;
+
+        RndInterval I;
+        I.x_orig = f;
+        I.x_rr = RangeReduction(f);
+        X.push_back(I);
+
+        fprintf(fptr, "%4.30f %4.30f\n", f, I.x_rr);
+
+        for (int i = 0; i < step; i++)
+        {
+            f = nextafterf(f, INFINITY);
+        }
     }
     printf("sample size = %ld\n", n);
     return X;
@@ -66,155 +129,141 @@ vector<RndInterval> GenerateFloatSample()
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("CalcRndIntervals.txt", "w");
+    fptr = fopen("dump/CalcRndIntervals.txt", "w");
 
-    float x = 0;
-    float y, l, h;
+    float y;
+    double l, u;
 
-    mpfr_t y_mpfr, x_mpfr, l_mpfr, h_mpfr, middle;
+    mpfr_t y_mpfr, x_mpfr;
 
-    mpfr_inits2(200, y_mpfr, x_mpfr, l_mpfr, h_mpfr, middle, NULL);
+    mpfr_inits2(200, y_mpfr, x_mpfr, NULL);
 
     vector<RndInterval> L;
 
     for (size_t i = 0; i < X.size(); i++)
     {
-        x = X.at(i).x;
-
         RndInterval I;
+        I.x_orig = X.at(i).x_orig;
+        I.x_rr = X.at(i).x_rr;
 
-        mpfr_init2(I.lower, 200);
-        mpfr_init2(I.upper, 200);
-
-        I.x = x;
-
-        mpfr_set_flt(x_mpfr, x, MPFR_RNDN);
+        mpfr_set_flt(x_mpfr, X.at(i).x_orig, MPFR_RNDN);
         mpfr_log2(y_mpfr, x_mpfr, MPFR_RNDN);
 
         y = mpfr_get_flt(y_mpfr, MPFR_RNDN);
-        h = nextafterf(y, +INFINITY);
-        l = nextafterf(y, -INFINITY);
 
-        mpfr_set_flt(middle, y, MPFR_RNDN);
-        mpfr_set_flt(l_mpfr, l, MPFR_RNDN);
-        mpfr_set_flt(h_mpfr, h, MPFR_RNDN);
+        float lfloat = nextafterf(y, -INFINITY);
+        float ufloat = nextafterf(y, +INFINITY);
 
-        mpfr_add(l_mpfr, l_mpfr, middle, MPFR_RNDN);
-        mpfr_div_ui(l_mpfr, l_mpfr, 2, MPFR_RNDN);
+        l = ((double)y + (double)lfloat) / 2;
+        u = ((double)y + (double)ufloat) / 2;
 
-        // should be while loop
-        if (mpfr_get_flt(l_mpfr, MPFR_RNDN) != y)
+        while ((float)l != (float)y)
         {
-            mpfr_nextabove(l_mpfr);
+            l = nextafter(l, y);
         }
-        mpfr_set(I.lower, l_mpfr, MPFR_RNDN);
-        assert(mpfr_get_flt(I.lower, MPFR_RNDN) == y);
+        assert((float)l == (float)y);
 
-        mpfr_add(h_mpfr, h_mpfr, middle, MPFR_RNDN);
-        mpfr_div_ui(h_mpfr, h_mpfr, 2, MPFR_RNDN);
-
-        // should be while loop
-        if (mpfr_get_flt(h_mpfr, MPFR_RNDN) != y)
+        while ((float)u != (float)y)
         {
-            mpfr_nextbelow(h_mpfr);
+            u = nextafter(u, y);
         }
-        mpfr_set(I.upper, h_mpfr, MPFR_RNDN);
-        assert(mpfr_get_flt(I.upper, MPFR_RNDN) == y);
+        assert((float)u == (float)y);
+
+        if (l > u)
+        {
+            printf("x = %4.15f y = %4.15f l = %4.15f u = %4.15f\n", X.at(i).x_orig, y, l, u);
+            double temp = l;
+            l = u;
+            u = temp;
+        }
+        assert(l < u);
 
         // fprintf(fptr, "%.24e %.24e %.24e %.24e \n", x, y, l, h);
-        fprintf(fptr, "%4.30f %4.30f %4.30Lf %4.30Lf\n", x, y, mpfr_get_ld(I.upper, MPFR_RNDN), mpfr_get_ld(I.lower, MPFR_RNDN));
+        fprintf(fptr, "%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
+        I.y = y;
+        I.l = l;
+        I.u = u;
+
         L.push_back(I);
     }
     return L;
 }
 
-vector<RedInterval> CalcRedIntervals(vector<RndInterval> L)
+vector<RndInterval> CalcRedIntervals(vector<RndInterval> L)
 {
     FILE *fptr;
-    fptr = fopen("CalcRedIntervals.txt", "w");
+    fptr = fopen("dump/CalcRedIntervals.txt", "w");
+    float yp;
+    double lp, up;
 
-    vector<RedInterval> L2;
+    mpfr_t yp_mpfr, xrr_mpfr;
+    mpfr_inits2(200, yp_mpfr, xrr_mpfr, NULL);
 
-    for (size_t i = 1; i < L.size(); i++)
+    vector<RndInterval> L2;
+
+    for (size_t i = 0; i < L.size(); i++)
     {
-        // fprintf(fptr, "%4.30Lf %4.30Lf\n", mpfr_get_ld(L.at(i).upper, MPFR_RNDN), mpfr_get_ld(L.at(i).lower, MPFR_RNDN));
-        // mpfr_out_str(fptr, 10, 0, L.at(i).lower, MPFR_RNDD);
-        mpfr_t x_rr, int_part, exp_mpfr, x2_mpfr;
-        mpfr_t alpha, beta;
-        mpfr_inits2(200, x_rr, int_part, exp_mpfr, x2_mpfr, NULL);
-        mpfr_inits2(200, alpha, beta, NULL);
+        RndInterval I;
+        I.x_orig = L.at(i).x_orig;
+        I.x_rr = L.at(i).x_rr;
 
-        mpfr_log2(exp_mpfr, x2_mpfr, MPFR_RNDN);
-        mpfr_floor(exp_mpfr, exp_mpfr);
-        long exp = mpfr_get_si(exp_mpfr, MPFR_RNDZ);
-        exp = exp + 2;
-        // fprintf(fptr, "%ld\n", exp);
-        mpfr_set_flt(exp_mpfr, 2, MPFR_RNDN);
-        mpfr_pow_si(exp_mpfr, exp_mpfr, exp, MPFR_RNDN);
+        I.y = L.at(i).y;
+        I.l = L.at(i).l;
+        I.u = L.at(i).u;
 
-        mpfr_set_flt(x_rr, L.at(i).x, MPFR_RNDN);
-        mpfr_div(x_rr, x_rr, exp_mpfr, MPFR_RNDN);
+        lp = InverseOutputCompensation(L.at(i).x_orig, L.at(i).l);
+        up = InverseOutputCompensation(L.at(i).x_orig, L.at(i).u);
 
-        mpfr_sub_si(alpha, L.at(i).lower, exp, MPFR_RNDN);
-        mpfr_sub_si(beta, L.at(i).upper, exp, MPFR_RNDN);
+        // printf("lp = %4.15f up = %4.15f\n", lp, up);
+        // printf("lp = %4.15f up = %4.15f\n", lp, up);
+        // printf("yp = %4.15f\n", yp);
+        while (OutputCompensation(L.at(i).x_orig, lp) > L.at(i).u && OutputCompensation(L.at(i).x_orig, lp) < L.at(i).l)
 
-        assert(mpfr_cmp(alpha, beta) < 0);
-
-        while (true)
+        // while ((float)OutputCompensation(L.at(i).x_orig, lp) != L.at(i).y)
         {
-            // check if alpha minus exp is above L.at(i).lower
-            mpfr_set_ld(exp_mpfr, exp, MPFR_RNDN);
-            mpfr_add(exp_mpfr, alpha, exp_mpfr, MPFR_RNDN);
-            if (mpfr_cmp(exp_mpfr, L.at(i).lower) > 0)
+            for (int j = 0; j < 100; j++)
             {
-                mpfr_nextabove(alpha);
+                lp = nextafter(lp, up);
             }
-            else
-            {
-                break;
-            }
+            // lp = nextafter(lp, up);
+            // lp += 0.0000001;
         }
-        while (true)
+        while (OutputCompensation(L.at(i).x_orig, up) > L.at(i).u && OutputCompensation(L.at(i).x_orig, up) < L.at(i).l)
+        // while ((float)OutputCompensation(L.at(i).x_orig, up) != L.at(i).y)
         {
-            // check if alpha minus exp is above L.at(i).lower
-            mpfr_set_ld(exp_mpfr, exp, MPFR_RNDN);
-            mpfr_add(exp_mpfr, beta, exp_mpfr, MPFR_RNDN);
-            if (mpfr_cmp(exp_mpfr, L.at(i).upper) < 0)
+            for (int j = 0; j < 100; j++)
             {
-                mpfr_nextabove(beta);
+                up = nextafter(up, lp);
             }
-            else
-            {
-                break;
-            }
+            // up = nextafter(up, lp);
+            // up -= 0.0000001;
         }
+        // printf("lp = %4.15f up = %4.15f\n", lp, up);
+        // printf("lp = %4.15f up = %4.15f\n", lp, up);
+        // if (lp >= up)
+        // {
+        //     printf("x = %4.15f lp = %4.15f up = %4.15f\n", L.at(i).x_orig, lp, up);
+        //     double temp = lp;
+        //     lp = up;
+        //     up = temp;
+        // }
+        assert(lp < up);
 
-        RedInterval I;
-        mpfr_inits2(200, I.lower, I.upper, I.x, I.l_orig, I.u_orig, NULL);
+        fprintf(fptr, "%4.15f %4.40f %4.40f %4.40f \n", (double)L.at(i).x_orig, L.at(i).x_rr, lp, up);
+        I.lp = lp;
+        I.up = up;
 
-        mpfr_set(I.x, x_rr, MPFR_RNDN);
-        mpfr_set(I.lower, alpha, MPFR_RNDN);
-        mpfr_set(I.upper, beta, MPFR_RNDN);
-
-        I.x_orig = L.at(i).x;
-        mpfr_set(I.l_orig, L.at(i).lower, MPFR_RNDN);
-        mpfr_set(I.u_orig, L.at(i).upper, MPFR_RNDN);
-
-        fprintf(fptr, "%4.40f \n", L.at(i).x);
-        mpfr_fprintf(fptr, "%3.48Rf %3.48Rf %3.48Rf \n", I.x, I.lower, I.upper);
-
-        fprintf(fptr, "\n");
         L2.push_back(I);
     }
     return L2;
 }
 
-Polynomial GeneratePolynomial(vector<RedInterval> L)
+Polynomial GeneratePolynomial(vector<RndInterval> L2)
 {
 
     // int termsize = 3;
     // for (int termsize = 29; termsize < 30; termsize++)
-    for (int termsize = 7; termsize < 30; termsize++)
+    for (int termsize = 1; termsize < 30; termsize++)
     {
 
         SoPlex mysoplex;
@@ -240,12 +289,12 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
         }
 
         /* then constraints one by one */
-        for (int i = 0; i < L.size(); i++)
+        for (int i = 0; i < L2.size(); i++)
         // for (int i = 1; i < 50; i++)
         {
             DSVectorRational row1(termsize);
             Rational acc(1.0);
-            Rational xval(mpfr_get_d1(L.at(i).x));
+            Rational xval(L2.at(i).x_rr);
             row1.add(0, 1.0);
 
             for (int j = 1; j < termsize; j++)
@@ -253,18 +302,18 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
                 acc = acc * xval;
                 row1.add(j, acc);
             }
-            double lbnd = mpfr_get_d1(L.at(i).lower);
-            double ubnd = mpfr_get_d1(L.at(i).upper);
+            double lbnd = (L2.at(i).lp);
+            double ubnd = (L2.at(i).up);
             // print x
             // mpfr_out_str(stdout, 10, 0, L.at(i).x, MPFR_RNDN);
             mysoplex.addRowRational(LPRowRational(lbnd, row1, ubnd));
         }
 
-        mysoplex.writeFileRational("dump_rational.lp", NULL, NULL, NULL);
-        mysoplex.writeFileReal("dump_real.lp", NULL, NULL, NULL);
+        mysoplex.writeFileRational("dump/f32_dump_rational.lp", NULL, NULL, NULL);
+        mysoplex.writeFileReal("dump/f32_dump_real.lp", NULL, NULL, NULL);
 
         SPxSolver::Status stat;
-        cout << "Solving... " << termsize << "\n";
+        // cout << "Solving... " << termsize << "\n";
 
         stat = mysoplex.optimize();
         Polynomial P;
@@ -295,84 +344,162 @@ Polynomial GeneratePolynomial(vector<RedInterval> L)
             }
         }
         // output stat
-        std::cout << "Status: " << stat << std::endl;
+        // std::cout << "Status: " << stat << std::endl;
     }
     Polynomial N;
 
     return N;
 }
-double EvaulutePoly(Polynomial P, float x)
+double EvaulutePoly(Polynomial P, double xval)
 {
-    double xval = (double)x;
     double acc = 0.0;
     double power = 1.0;
+
     for (int i = 0; i < P.termsize; i++)
     {
-        // printf("%ld", P.coefficients.at(i));
-        acc = acc + P.coefficients.at(i) * power;
-        power = power * x;
+
+        acc += P.coefficients.at(i) * power;
+        power *= xval;
     }
+
     return acc;
 }
 
-void Verify(vector<RedInterval> L2, Polynomial P)
+vector<RndInterval> VerifyConsistant(vector<RndInterval> L2, Polynomial P)
 {
-    vector<RndInterval> X;
     size_t n = 0;
     size_t correct = 0;
-    for (float floatValue = 1; floatValue <= 1.1; floatValue = nextafterf(floatValue, INFINITY))
+
+    for (size_t i = 0; i < L2.size(); i++)
     {
         n++;
-        float range_reduced = floatValue;
-        float eval = (float)EvaulutePoly(P, floatValue);
-        mpfr_t y;
-        mpfr_inits2(200, y, NULL);
-        mpfr_set_flt(y, floatValue, MPFR_RNDN);
-        mpfr_log2(y, y, MPFR_RNDN);
+        float f = L2.at(i).x_orig;
 
-        float oracle = mpfr_get_flt(y, MPFR_RNDN);
-        printf("Float: %6.60f \n ", eval - floatValue);
-        if (eval != oracle)
+        double x = (double)f;
+        double x_rr = RangeReduction(f);
+        double eval = EvaulutePoly(P, x_rr);
+
+        float y = OutputCompensation(f, eval);
+
+        mpfr_t y_mpfr;
+        mpfr_init2(y_mpfr, 200);
+        mpfr_set_d(y_mpfr, x, MPFR_RNDN);
+        mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
+
+        float oracle = (float)mpfr_get_d(y_mpfr, MPFR_RNDN);
+
+        if (y == oracle)
         {
-
-            // printf("Float: %6.60f Eval: %6.60f Oracle: %6.50f\n ", floatValue, eval, oracle);
+            correct++;
         }
         else
         {
-            correct += 1;
-        }
 
-        if (n > 1000)
+            printf("failed: x = %4.30f y = %4.30f oracle = %4.30f\n", x, y, oracle);
+            printf("x_rr = %4.30f eval = %4.30f\n\n", x_rr, eval);
+        }
+    }
+
+    printf("In sample: correct = %ld incorrect = %ld\n", correct, n - correct);
+    return L2;
+}
+vector<RndInterval> VerifyContinuous(vector<RndInterval> L2, Polynomial P, float start, float end, size_t cap)
+{
+    size_t n = 0;
+    size_t correct = 0;
+
+    for (float f = start; f < end;
+         f = nextafterf(f, INFINITY))
+    {
+        if (cap > 0 & n > cap)
         {
             break;
         }
 
-        // cout << "Float: " << floatValue << " Eval: " << eval << "\n";
+        n++;
+
+        double x = (double)f;
+        double x_rr = RangeReduction(f);
+        double eval = EvaulutePoly(P, x_rr);
+
+        float y = OutputCompensation(f, eval);
+
+        mpfr_t y_mpfr;
+        mpfr_init2(y_mpfr, 200);
+        mpfr_set_d(y_mpfr, x, MPFR_RNDN);
+        mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
+
+        float oracle = (float)mpfr_get_d(y_mpfr, MPFR_RNDN);
+
+        if (y == oracle)
+        {
+            correct++;
+        }
+        else
+        {
+            // printf("continuous Failed: x = %4.30f y = %4.30f oracle = %4.30f x_rr = %4.30f eval = %4.30f\n", x, y, oracle, x_rr, eval);
+            RndInterval I;
+            I.x_orig = f;
+            I.x_rr = x_rr;
+
+            L2.push_back(I);
+            return L2;
+        }
     }
-    printf("Correct: %ld Total: %ld\n", correct, n);
-    return;
+    printf("Full range: correct = %ld incorrect = %ld\n", correct, n - correct);
+    return L2;
 }
-int main()
+
+int main(int argc, char *argv[])
 {
+    // 0 : dont use files at all
+    // 1 : send results to files
+    // 2 : read results from files if available
+
+    int save_to_file = 0;
+    // check if first command line arg is -y
+    if (argc == 2)
+    {
+        if (strcmp(argv[1], "1") == 0)
+        {
+            save_to_file = 1;
+        }
+    }
 
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample();
-
-    printf("Generating RndIntervals...\n");
-    vector<RndInterval> L = CalcRndIntervals(X);
-
-    printf("Generating RedIntervals...\n");
-    vector<RedInterval> L2 = CalcRedIntervals(L);
-
-    printf("Generating Polynomial...\n");
-
-    Polynomial P = GeneratePolynomial(L2);
-    for (int i = 0; i < P.termsize; i++)
+    vector<RndInterval> X = GenerateFloatSample(SAMPLE_START, SAMPLE_END, 1000000, 1234);
+    size_t last = X.size();
+    Polynomial P;
+    for (;;)
     {
-        printf("%5.60f\n", P.coefficients.at(i));
-    }
 
-    // Verify(L2, P);
+        printf("Generating RndIntervals...\n");
+        vector<RndInterval> L = CalcRndIntervals(X);
+
+        printf("Generating RedIntervals...\n");
+        vector<RndInterval> L2 = CalcRedIntervals(L);
+
+        printf("Generating Polynomial...\n");
+        P = GeneratePolynomial(L2);
+
+        FILE *fptr;
+        fptr = fopen("dump/poly.txt", "w");
+        for (int i = 0; i < P.termsize; i++)
+        {
+            fprintf(fptr, "%5.60f\n", P.coefficients.at(i));
+            // printf("%5.60f\n", P.coefficients.at(i));
+        }
+
+        X = VerifyConsistant(L2, P);
+        X = VerifyContinuous(X, P, SAMPLE_START, SAMPLE_END, -1);
+        if (X.size() == last)
+        {
+            break;
+        }
+        printf("X size = %ld\n", X.size());
+        last = X.size();
+    }
+    X = VerifyContinuous(X, P, SAMPLE_START, SAMPLE_END, -1);
 
     printf("Finished!\n");
 }

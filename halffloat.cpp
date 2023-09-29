@@ -112,7 +112,8 @@ vector<RndInterval> GenerateFloatSample()
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("RndIntervalHalf.txt", "w");
+    fptr = fopen("dump/RndIntervalHalf.txt", "w");
+
     half y;
     double l, u;
 
@@ -172,7 +173,7 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("RedIntervalHalf.txt", "w");
+    fptr = fopen("dump/RedIntervalHalf.txt", "w");
     half yp;
     double lp, up;
 
@@ -270,8 +271,8 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             mysoplex.addRowRational(LPRowRational(lbnd, row1, ubnd));
         }
 
-        mysoplex.writeFileRational("dump_rational.lp", NULL, NULL, NULL);
-        mysoplex.writeFileReal("dump_real.lp", NULL, NULL, NULL);
+        mysoplex.writeFileRational("dump/dump_rational.lp", NULL, NULL, NULL);
+        mysoplex.writeFileReal("dump/dump_real.lp", NULL, NULL, NULL);
 
         SPxSolver::Status stat;
         cout << "Solving... " << termsize << "\n";
@@ -307,8 +308,8 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
         // output stat
         std::cout << "Status: " << stat << std::endl;
     }
+    
     Polynomial N;
-
     return N;
 }
 
@@ -364,6 +365,7 @@ void Verify(vector<RndInterval> L2, Polynomial P)
             correct += 1;
         }
 
+        
         // if (n > 10000)
         // {
         //     break;
@@ -371,6 +373,7 @@ void Verify(vector<RndInterval> L2, Polynomial P)
 
         // cout << "Float: " << floatValue << " Eval: " << eval << "\n";
     }
+    
     printf("Correct: %ld Total: %ld\n", correct, n);
     return;
 }
