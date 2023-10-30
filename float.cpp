@@ -8,6 +8,7 @@
 #include <random>
 #include <soplex.h>
 #include <cstdlib>
+#include "helper.hpp"
 
 #define SAMPLE_START 1.01
 #define SAMPLE_END 1.04
@@ -15,61 +16,6 @@
 using namespace std;
 using namespace soplex;
 
-struct RndInterval
-{
-    float x_orig;
-    float y;
-
-    double l;
-    double u;
-
-    double x_rr;
-    double yp;
-    double lp;
-    double up;
-};
-
-typedef union
-{
-    float f;
-    int i;
-} floatX;
-
-struct Polynomial
-{
-    int termsize;
-    vector<double> coefficients;
-};
-
-int write_rnd_interval_to_file(vector<RndInterval> X, const char *filename)
-{
-    FILE *fptr;
-    fptr = fopen(filename, "wb");
-
-    for (size_t i = 0; i < X.size(); i++)
-    {
-
-        fwrite(&X.at(i), sizeof(RndInterval), 1, fptr);
-    }
-    fclose(fptr);
-
-    return 0;
-}
-vector<RndInterval> read_rnd_interval_from_file(const char *filename)
-{
-    vector<RndInterval> X;
-    FILE *fptr;
-    fptr = fopen(filename, "rb");
-    RndInterval x1;
-
-    while (fread(&x1, sizeof(RndInterval), 1, fptr) == 1)
-    {
-        X.push_back(x1);
-    }
-    fclose(fptr);
-
-    return X;
-}
 
 double RangeReduction(float x)
 {
@@ -154,19 +100,23 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
         float lfloat = nextafterf(y, -INFINITY);
         float ufloat = nextafterf(y, +INFINITY);
 
-        l = ((double)y + (double)lfloat) / 2;
-        u = ((double)y + (double)ufloat) / 2;
+        l = ((double)y + (double)lfloat) / 2.0;
+        u = ((double)y + (double)ufloat) / 2.0;
 
         while ((float)l != (float)y)
         {
-            l = nextafter(l, y);
+            l = nextafter(l, u);
         }
+        l = nextafter(l, u);
+
         assert((float)l == (float)y);
 
         while ((float)u != (float)y)
         {
-            u = nextafter(u, y);
+            u = nextafter(u, l);
         }
+        u = nextafter(u, l);
+
         assert((float)u == (float)y);
 
         if (l > u)
@@ -217,21 +167,21 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> L)
         // printf("lp = %4.15f up = %4.15f\n", lp, up);
         // printf("lp = %4.15f up = %4.15f\n", lp, up);
         // printf("yp = %4.15f\n", yp);
-        while (OutputCompensation(L.at(i).x_orig, lp) > L.at(i).u && OutputCompensation(L.at(i).x_orig, lp) < L.at(i).l)
+        while ((float)OutputCompensation(L.at(i).x_orig, lp) != L.at(i).y)
 
         // while ((float)OutputCompensation(L.at(i).x_orig, lp) != L.at(i).y)
         {
-            for (int j = 0; j < 100; j++)
+            for (int j = 0; j < 3; j++)
             {
                 lp = nextafter(lp, up);
             }
             // lp = nextafter(lp, up);
             // lp += 0.0000001;
         }
-        while (OutputCompensation(L.at(i).x_orig, up) > L.at(i).u && OutputCompensation(L.at(i).x_orig, up) < L.at(i).l)
-        // while ((float)OutputCompensation(L.at(i).x_orig, up) != L.at(i).y)
+        // while (OutputCompensation(L.at(i).x_orig, up) > L.at(i).u || OutputCompensation(L.at(i).x_orig, up) < L.at(i).l)
+        while ((float)OutputCompensation(L.at(i).x_orig, up) != L.at(i).y)
         {
-            for (int j = 0; j < 100; j++)
+            for (int j = 0; j < 3; j++)
             {
                 up = nextafter(up, lp);
             }
@@ -375,7 +325,7 @@ vector<RndInterval> VerifyConsistant(vector<RndInterval> L2, Polynomial P)
         n++;
         float f = L2.at(i).x_orig;
 
-        double x = (double)f;
+        // double x = (double)f;
         double x_rr = RangeReduction(f);
         double eval = EvaulutePoly(P, x_rr);
 
@@ -383,7 +333,7 @@ vector<RndInterval> VerifyConsistant(vector<RndInterval> L2, Polynomial P)
 
         mpfr_t y_mpfr;
         mpfr_init2(y_mpfr, 200);
-        mpfr_set_d(y_mpfr, x, MPFR_RNDN);
+        mpfr_set_flt(y_mpfr, f, MPFR_RNDN);
         mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
 
         float oracle = (float)mpfr_get_d(y_mpfr, MPFR_RNDN);
@@ -394,9 +344,12 @@ vector<RndInterval> VerifyConsistant(vector<RndInterval> L2, Polynomial P)
         }
         else
         {
-
-            printf("failed: x = %4.30f y = %4.30f oracle = %4.30f\n", x, y, oracle);
-            printf("x_rr = %4.30f eval = %4.30f\n\n", x_rr, eval);
+            // L2.at(i).l
+            // print x y oracle xrr eval y l u lp up
+            // printf("failed: x = %4.30f y = %4.30f oracle = %4.30f\n", f, y, oracle);
+            // printf("l = %4.30f u = %4.30f lp  = %4.30f up = %4.30f\n", L2.at(i).l, L2.at(i).u, L2.at(i).lp, L2.at(i).up);
+            // printf("x_rr = %4.30f eval = %4.30f\n\n", x_rr, eval);
+            // print("")
         }
     }
 
@@ -429,7 +382,7 @@ vector<RndInterval> VerifyContinuous(vector<RndInterval> L2, Polynomial P, float
         mpfr_set_d(y_mpfr, x, MPFR_RNDN);
         mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
 
-        float oracle = (float)mpfr_get_d(y_mpfr, MPFR_RNDN);
+        float oracle = mpfr_get_flt(y_mpfr, MPFR_RNDN);
 
         if (y == oracle)
         {
@@ -469,6 +422,7 @@ int main(int argc, char *argv[])
     printf("Generating FloatSample...\n");
     vector<RndInterval> X = GenerateFloatSample(SAMPLE_START, SAMPLE_END, 1000000, 1234);
     size_t last = X.size();
+
     Polynomial P;
     for (;;)
     {

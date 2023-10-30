@@ -36,12 +36,6 @@ struct Polynomial
     vector<double> coefficients;
 };
 
-// typedef union
-// {
-//     half h;
-//     unsigned short x;
-// } halfX;
-
 void print_binary_half(half h)
 {
     short n = *(short *)&h;
@@ -377,6 +371,7 @@ void Verify(vector<RndInterval> L2, Polynomial P)
     printf("Correct: %ld Total: %ld\n", correct, n);
     return;
 }
+
 int main()
 {
 

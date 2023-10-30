@@ -11,7 +11,7 @@
 
 #define SAMPLE_START 1.0
 #define SAMPLE_END 2.0
-#define LL 32
+#define L 32
 #define INV_L = (double) 32 / log(2)
 
 using namespace std;
