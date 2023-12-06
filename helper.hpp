@@ -32,6 +32,12 @@ typedef union
     int i;
 } floatX;
 
+typedef union
+{
+    double d;
+    long long i;
+} doubleX;
+
 struct Polynomial
 {
     int termsize;

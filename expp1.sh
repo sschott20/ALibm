@@ -1,1 +1,0 @@
-g++ -O2 -I/home/soplex-4.0.1//src/ -std=c++11 expp1.cpp  /home/soplex-4.0.1//build/lib/libsoplex.a -o float -lgmp -lz -lm -lmpfr 

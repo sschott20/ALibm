@@ -409,15 +409,14 @@ int main(int argc, char *argv[])
     // 1 : send results to files
     // 2 : read results from files if available
 
-    int save_to_file = 0;
-    // check if first command line arg is -y
-    if (argc == 2)
-    {
-        if (strcmp(argv[1], "1") == 0)
-        {
-            save_to_file = 1;
-        }
-    }
+    // int save_to_file = 0;
+    // if (argc == 2)
+    // {
+    //     if (strcmp(argv[1], "1") == 0)
+    //     {
+    //         save_to_file = 1;
+    //     }
+    // }
 
     printf("Generating FloatSample...\n");
     vector<RndInterval> X = GenerateFloatSample(SAMPLE_START, SAMPLE_END, 1000000, 1234);
@@ -426,7 +425,6 @@ int main(int argc, char *argv[])
     Polynomial P;
     for (;;)
     {
-
         printf("Generating RndIntervals...\n");
         vector<RndInterval> L = CalcRndIntervals(X);
 
@@ -441,7 +439,7 @@ int main(int argc, char *argv[])
         for (int i = 0; i < P.termsize; i++)
         {
             fprintf(fptr, "%5.60f\n", P.coefficients.at(i));
-            // printf("%5.60f\n", P.coefficients.at(i));
+            printf("%5.60f\n", P.coefficients.at(i));
         }
 
         X = VerifyConsistant(L2, P);
