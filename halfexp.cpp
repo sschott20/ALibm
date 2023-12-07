@@ -12,7 +12,6 @@
 #include <math.h>
 #include <bitset>
 #include <iomanip>
-#include "luts.h"
 
 using namespace std;
 using namespace soplex;
@@ -51,6 +50,7 @@ double RangeReduction(half x)
 {
     double xp = x * 92.332482616893656768297660164535045623779296875;
     int N = (int)xp;
+
     return x - N * 0.01083042469624914509729318723429969395510852336883544921875;
 }
 
@@ -69,21 +69,16 @@ double OutputCompensation(half x, double yp)
 
 double InverseOutputCompensation(half x, double yp)
 {
-    double xp = x * 92.332482616893656768297660164535045623779296875;
-    int N = (int)xp;
-    int N2 = N % 64;
-    if (N2 < 0)
-        N2 += 64;
-    int N1 = N - N2;
-    int M = N1 / 64;
-    int J = N2;
-    return (2 << M) * ((2 << (J / 64)) + (2 << J / 64) * yp) - 1;
+    int exp;
+    double sig = half_float::frexp(x, &exp);
+    return yp - exp;
 }
 
 half EvaluateFunction(mpfr_t y, double x)
 {
     mpfr_set_d(y, x, MPFR_RNDN);
-    mpfr_log2(y, y, MPFR_RNDN);
+    mpfr_exp(y, y, MPFR_RNDN);
+    // mpfr_log2(y, y, MPFR_RNDN);
     half h = (half)mpfr_get_d(y, MPFR_RNDN);
     return h;
 }
@@ -207,17 +202,17 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 
         lp = InverseOutputCompensation(X.at(i).x_orig, X.at(i).l);
         up = InverseOutputCompensation(X.at(i).x_orig, X.at(i).u);
-        printf("%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)X.at(i).y, lp, up);
 
         while (OutputCompensation(X.at(i).x_orig, lp) < X.at(i).l)
         {
-            lp = nextafterf(lp, up);
+            lp = nextafterf(lp, INFINITY);
         }
 
         while (OutputCompensation(X.at(i).x_orig, up) > X.at(i).u)
         {
-            up = nextafterf(up, lp);
+            up = nextafterf(up, -INFINITY);
         }
+
         assert(lp <= up);
         fprintf(fptr, "%4.15f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, X.at(i).x_rr, lp, up);
         I.lp = lp;
