@@ -1,1 +1,1 @@
-g++ -O2 -I/home/soplex-4.0.1//src/ -std=c++11 halflog2.cpp  /home/soplex-4.0.1//build/lib/libsoplex.a -o halflog2 -lgmp -lz -lm -lmpfr && ./halflog2
+g++ -O2 -I/home/soplex-4.0.1//src/ -std=c++11 halflog2.cpp  /home/soplex-4.0.1//build/lib/libsoplex.a -o float -lgmp -lz -lm -lmpfr && ./halflog2
