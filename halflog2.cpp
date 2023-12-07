@@ -93,26 +93,41 @@ half EvaluateFunction(mpfr_t y, double x)
     return h;
 }
 
-vector<RndInterval> GenerateFloatSample()
+vector<RndInterval> GenerateFloatSample(int sample_size)
 {
     vector<RndInterval> X;
     size_t n = 0;
     half h;
     half zero(0.0);
     half inf((0x7BFF));
-    for (h = half_float::nextafter(zero, inf); h < 1; h = half_float::nextafter(h, inf))
+    if (sample_size == -1)
     {
-        n++;
-        RndInterval I;
-        I.x_orig = h;
-        I.x_rr = RangeReduction(h);
-        X.push_back(I);
-        for (int i = 0; i < 100; i++)
+        for (h = half_float::nextafter(zero, inf); h != inf; h = half_float::nextafter(h, inf))
         {
-            h = half_float::nextafter(h, inf);
+            n++;
+            RndInterval I;
+            I.x_orig = h;
+            I.x_rr = RangeReduction(h);
+            X.push_back(I);
         }
     }
-    printf("sample size = %ld\n", n);
+    else
+    {
+        int skip = (1 << 16) / sample_size;
+        for (h = half_float::nextafter(zero, inf); h != inf; h = half_float::nextafter(h, inf))
+        {
+            n++;
+            RndInterval I;
+            I.x_orig = h;
+            I.x_rr = RangeReduction(h);
+            X.push_back(I);
+            for (int i = 0; i < skip; i++)
+            {
+                h = half_float::nextafter(h, inf);
+            }
+        }
+    }
+    // printf("sample size = %ld\n", n);
     return X;
 }
 
@@ -136,11 +151,7 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 
         I.x_orig = X.at(i).x_orig;
         I.x_rr = X.at(i).x_rr;
-
-        mpfr_set_flt(x_mpfr, X.at(i).x_orig, MPFR_RNDN);
-        mpfr_log2(y_mpfr, x_mpfr, MPFR_RNDN);
-
-        y = (half)mpfr_get_d(y_mpfr, MPFR_RNDN);
+        y = EvaluateFunction(y_mpfr, (double)X.at(i).x_orig);
 
         half inf(half_float::half(0x7BFF));
 
@@ -152,24 +163,25 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 
         while ((half)l != (half)y)
         {
-            // l += 0.00000001;
+            l += 0.00000001;
             // l = half_float::nextafter(l, inf);
             // for (int i = 0; i < 10; i++)
             // {
-            l = nextafterf(l, INFINITY);
+            // l = nextafterf(l, INFINITY);
             // }
         }
         assert((half)l == (half)y);
 
         while ((half)u != (half)y)
         {
-            // u -= 0.00000001;
+            u -= 0.00000001;
             // u = half_float::nextafter(u, -inf);
             // for (int i = 0; i < 10; i++)
             // {
-            u = nextafterf(u, -INFINITY);
+            // u = nextafterf(u, -INFINITY);
             // }
         }
+        // printf("l = %4.15f u = %4.15f y = %4.15f x = %4.15f\n", l, u, (double)y, (double)X.at(i).x_orig);
         assert((half)u == (half)y);
         // if (l > u){
         //     // print l u y x
@@ -347,12 +359,12 @@ double EvaulutePoly(Polynomial P, double xval)
     return acc;
 }
 
-void Verify(vector<RndInterval> L2, Polynomial P)
+vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
 {
     size_t n = 0;
     size_t correct = 0;
     half inf(half_float::half(0x7BFF));
-
+    vector<RndInterval> Incorrect;
     for (size_t i = 0; i < L2.size(); i++)
     {
         n++;
@@ -366,62 +378,6 @@ void Verify(vector<RndInterval> L2, Polynomial P)
 
         mpfr_t y_mpfr;
         mpfr_inits2(200, y_mpfr, NULL);
-
-        // mpfr_set_d(y_mpfr, x, MPFR_RNDN);
-        // mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
-
-        // half oracle = (half)mpfr_get_d(y_mpfr, MPFR_RNDN);
-        half oracle = EvaluateFunction(y_mpfr, x);
-
-        if (y != oracle)
-        {
-            printf("Failed in sample! %4.10f %4.10f, %4.10f\n", (double)h, (double)oracle, (double)y);
-        }
-        else
-        {
-            // printf("Correct!\n");
-            correct += 1;
-        }
-
-        // if (n > 10000)
-        // {
-        //     break;
-        // }
-
-        // cout << "Float: " << floatValue << " Eval: " << eval << "\n";
-    }
-
-    printf("In sample, Correct: %ld Incorrect: %ld\n", correct, n - correct);
-    return;
-}
-
-vector<RndInterval> VerifyAll(vector<RndInterval> L2, Polynomial P)
-{
-    size_t n = 0;
-    size_t correct = 0;
-    half inf(half_float::half(0x7BFF));
-    // half h(half_float::half(0xFC00));
-    half h(half_float::half(0x0000));
-
-    vector<RndInterval> Incorrect;
-    for (;;)
-    {
-        h = half_float::nextafter(h, inf);
-        if (h == inf)
-        {
-            break;
-        }
-        double x = (double)h;
-        double range_reduced = RangeReduction(h);
-        double eval = EvaulutePoly(P, range_reduced);
-        half y(OutputCompensation(h, eval));
-
-        mpfr_t y_mpfr;
-        mpfr_inits2(200, y_mpfr, NULL);
-        // mpfr_set_d(y_mpfr, x, MPFR_RNDN);
-        // mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
-
-        // half oracle = (half)mpfr_get_d(y_mpfr, MPFR_RNDN);
         half oracle = EvaluateFunction(y_mpfr, x);
 
         if (y != oracle)
@@ -435,29 +391,24 @@ vector<RndInterval> VerifyAll(vector<RndInterval> L2, Polynomial P)
         {
             correct += 1;
         }
-        n++;
     }
 
-    printf("Out of sample, Correct: %ld Incorrect: %ld\n", correct, n - correct);
+    printf("In sample, Correct: %ld Incorrect: %ld\n", correct, n - correct);
     return Incorrect;
 }
 
 int main()
 {
-
-    // half x(100.5);
-    // double xrr = RangeReduction(x);
-    // printf("x = %4.15f, xrr = %4.15f\n", (double)x, xrr);
-
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample();
+    vector<RndInterval> X = GenerateFloatSample(100);
 
+    printf("Generating all float values...\n");
+    vector<RndInterval> Test = GenerateFloatSample(-1);
     vector<RndInterval> Incorrect;
     Polynomial P;
 
     do
     {
-        // new sample adds 10 more values to X from incorrect
         if (Incorrect.size() < 10)
         {
             for (int i = 0; i < Incorrect.size(); i++)
@@ -484,14 +435,26 @@ int main()
         printf("Generating Polynomial...\n");
         P = GeneratePolynomial(L2);
 
-        Verify(L2, P);
-        Incorrect = VerifyAll(L2, P);
+        Incorrect = Verify(L2, P);
+        if (Incorrect.size() > 0)
+        {
+            printf("FAILED IN SAMPLE: %ld\n", Incorrect.size());
+            return 0;
+        }
+        Incorrect = Verify(Test, P);
     } while (Incorrect.size() > 0);
 
     for (int i = 0; i < P.termsize; i++)
     {
         printf("%5.60f\n", P.coefficients.at(i));
     }
+    // open dump/poly.txt and print values of polynomial
+    FILE *fptr = fopen("dump/poly.txt", "w");
+    for (int i = 0; i < P.termsize; i++)
+    {
+        fprintf(fptr, "%5.60f\n", P.coefficients.at(i));
+    }
+    fclose(fptr);
 
     printf("Finished!\n");
 }
