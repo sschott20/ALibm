@@ -163,30 +163,17 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 
         while ((half)l != (half)y)
         {
-            l += 0.00000001;
-            // l = half_float::nextafter(l, inf);
-            // for (int i = 0; i < 10; i++)
-            // {
-            // l = nextafterf(l, INFINITY);
-            // }
+
+            l = nextafterf(l, INFINITY);
         }
         assert((half)l == (half)y);
 
         while ((half)u != (half)y)
         {
-            u -= 0.00000001;
-            // u = half_float::nextafter(u, -inf);
-            // for (int i = 0; i < 10; i++)
-            // {
-            // u = nextafterf(u, -INFINITY);
-            // }
+
+            u = nextafterf(u, -INFINITY);
         }
-        // printf("l = %4.15f u = %4.15f y = %4.15f x = %4.15f\n", l, u, (double)y, (double)X.at(i).x_orig);
         assert((half)u == (half)y);
-        // if (l > u){
-        //     // print l u y x
-        //     printf("l = %4.15f u = %4.15f y = %4.15f x = %4.15f\n", l, u, (double) y, (double)X.at(i).x_orig);
-        // }
         assert(l < u);
 
         fprintf(fptr, "%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
@@ -206,8 +193,6 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
     half yp;
     double lp, up;
 
-    // mpfr_t y_mpfr, x_mpfr, l_mpfr, h_mpfr, middle;
-    // mpfr_inits2(200, y_mpfr, x_mpfr, l_mpfr, h_mpfr, middle, NULL);
     mpfr_t yp_mpfr, xrr_mpfr;
     mpfr_inits2(200, yp_mpfr, xrr_mpfr, NULL);
 
@@ -230,13 +215,11 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 
         while (OutputCompensation(X.at(i).x_orig, lp) < X.at(i).l)
         {
-            // lp += 0.00000001;
             lp = nextafterf(lp, INFINITY);
         }
 
         while (OutputCompensation(X.at(i).x_orig, up) > X.at(i).u)
         {
-            // up -= 0.00000001;
             up = nextafterf(up, -INFINITY);
         }
 
@@ -246,7 +229,6 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
         I.up = up;
 
         L.push_back(I);
-        // printf("\n");
     }
     return L;
 }
@@ -254,9 +236,7 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 Polynomial GeneratePolynomial(vector<RndInterval> L)
 {
 
-    // int termsize = 3;
-    // for (int termsize = 29; termsize < 30; termsize++)
-    for (int termsize = 7; termsize < 30; termsize++)
+    for (int termsize = 1; termsize < 30; termsize++)
     {
         SoPlex mysoplex;
         mysoplex.setBoolParam(SoPlex::RATFACJUMP, true);
@@ -281,9 +261,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             mysoplex.addColRational(column);
         }
 
-        /* then constraints one by one */
         for (int i = 0; i < L.size(); i++)
-        // for (int i = 1; i < 50; i++)
         {
             DSVectorRational row1(termsize);
             Rational acc(1.0);
@@ -297,8 +275,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             }
             double lbnd = (L.at(i).lp);
             double ubnd = (L.at(i).up);
-            // print x
-            // mpfr_out_str(stdout, 10, 0, L.at(i).x, MPFR_RNDN);
+
             mysoplex.addRowRational(LPRowRational(lbnd, row1, ubnd));
         }
 
@@ -336,7 +313,6 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
                 P.coefficients.push_back(0.0);
             }
         }
-        // output stat
         std::cout << "Status: " << stat << std::endl;
     }
 
@@ -448,7 +424,7 @@ int main()
     {
         printf("%5.60f\n", P.coefficients.at(i));
     }
-    // open dump/poly.txt and print values of polynomial
+
     FILE *fptr = fopen("dump/poly.txt", "w");
     for (int i = 0; i < P.termsize; i++)
     {
