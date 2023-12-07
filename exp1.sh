@@ -1,1 +1,0 @@
-g++ -O2 -I/home/soplex-4.0.1//src/ -std=c++11 exp1.cpp  /home/soplex-4.0.1//build/lib/libsoplex.a -o exp1 -lgmp -lz -lm -lmpfr && ./exp1
