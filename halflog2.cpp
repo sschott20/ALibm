@@ -48,6 +48,7 @@ void print_binary_half(half h)
 // rr to [0.5, 1)
 double RangeReduction(half x)
 {
+    // reduces x to [0.5, 1)
     int exp;
     double sig = half_float::frexp(x, &exp);
     // exp -= 1;
@@ -84,6 +85,14 @@ double InverseOutputCompensation(half x, double yp)
     return yp - exp;
 }
 
+half EvaluateFunction(mpfr_t y, double x)
+{
+    mpfr_set_d(y, x, MPFR_RNDN);
+    mpfr_log2(y, y, MPFR_RNDN);
+    half h = (half)mpfr_get_d(y, MPFR_RNDN);
+    return h;
+}
+
 vector<RndInterval> GenerateFloatSample()
 {
     vector<RndInterval> X;
@@ -98,6 +107,10 @@ vector<RndInterval> GenerateFloatSample()
         I.x_orig = h;
         I.x_rr = RangeReduction(h);
         X.push_back(I);
+        for (int i = 0; i < 100; i++)
+        {
+            h = half_float::nextafter(h, inf);
+        }
     }
     printf("sample size = %ld\n", n);
     return X;
@@ -139,13 +152,23 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 
         while ((half)l != (half)y)
         {
-            l += 0.00000001;
+            // l += 0.00000001;
+            // l = half_float::nextafter(l, inf);
+            // for (int i = 0; i < 10; i++)
+            // {
+            l = nextafterf(l, INFINITY);
+            // }
         }
         assert((half)l == (half)y);
 
         while ((half)u != (half)y)
         {
-            u -= 0.00000001;
+            // u -= 0.00000001;
+            // u = half_float::nextafter(u, -inf);
+            // for (int i = 0; i < 10; i++)
+            // {
+            u = nextafterf(u, -INFINITY);
+            // }
         }
         assert((half)u == (half)y);
         // if (l > u){
@@ -195,12 +218,14 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 
         while (OutputCompensation(X.at(i).x_orig, lp) < X.at(i).l)
         {
-            lp += 0.00000001;
+            // lp += 0.00000001;
+            lp = nextafterf(lp, INFINITY);
         }
 
         while (OutputCompensation(X.at(i).x_orig, up) > X.at(i).u)
         {
-            up -= 0.00000001;
+            // up -= 0.00000001;
+            up = nextafterf(up, -INFINITY);
         }
 
         assert(lp <= up);
@@ -302,7 +327,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
         // output stat
         std::cout << "Status: " << stat << std::endl;
     }
-    
+
     Polynomial N;
     return N;
 }
@@ -341,17 +366,16 @@ void Verify(vector<RndInterval> L2, Polynomial P)
 
         mpfr_t y_mpfr;
         mpfr_inits2(200, y_mpfr, NULL);
-        mpfr_set_d(y_mpfr, x, MPFR_RNDN);
-        mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
 
-        half oracle = (half)mpfr_get_d(y_mpfr, MPFR_RNDN);
+        // mpfr_set_d(y_mpfr, x, MPFR_RNDN);
+        // mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
+
+        // half oracle = (half)mpfr_get_d(y_mpfr, MPFR_RNDN);
+        half oracle = EvaluateFunction(y_mpfr, x);
 
         if (y != oracle)
         {
-            printf("Failed! %4.10f %4.10f, %4.10f\n", (double)h, (double)oracle, (double)y);
-            // printf("rr = %4.15f eval = %4.15f \n", range_reduced, eval);
-            // printf("x = %4.15f y = %4.15f oracle = %4.15f\n", (double)h, (double)y, (double)oracle);
-            // printf("\n");
+            printf("Failed in sample! %4.10f %4.10f, %4.10f\n", (double)h, (double)oracle, (double)y);
         }
         else
         {
@@ -359,7 +383,6 @@ void Verify(vector<RndInterval> L2, Polynomial P)
             correct += 1;
         }
 
-        
         // if (n > 10000)
         // {
         //     break;
@@ -367,9 +390,56 @@ void Verify(vector<RndInterval> L2, Polynomial P)
 
         // cout << "Float: " << floatValue << " Eval: " << eval << "\n";
     }
-    
-    printf("Correct: %ld Total: %ld\n", correct, n);
+
+    printf("In sample, Correct: %ld Incorrect: %ld\n", correct, n - correct);
     return;
+}
+
+vector<RndInterval> VerifyAll(vector<RndInterval> L2, Polynomial P)
+{
+    size_t n = 0;
+    size_t correct = 0;
+    half inf(half_float::half(0x7BFF));
+    // half h(half_float::half(0xFC00));
+    half h(half_float::half(0x0000));
+
+    vector<RndInterval> Incorrect;
+    for (;;)
+    {
+        h = half_float::nextafter(h, inf);
+        if (h == inf)
+        {
+            break;
+        }
+        double x = (double)h;
+        double range_reduced = RangeReduction(h);
+        double eval = EvaulutePoly(P, range_reduced);
+        half y(OutputCompensation(h, eval));
+
+        mpfr_t y_mpfr;
+        mpfr_inits2(200, y_mpfr, NULL);
+        // mpfr_set_d(y_mpfr, x, MPFR_RNDN);
+        // mpfr_log2(y_mpfr, y_mpfr, MPFR_RNDN);
+
+        // half oracle = (half)mpfr_get_d(y_mpfr, MPFR_RNDN);
+        half oracle = EvaluateFunction(y_mpfr, x);
+
+        if (y != oracle)
+        {
+            RndInterval I;
+            I.x_orig = h;
+            I.x_rr = range_reduced;
+            Incorrect.push_back(I);
+        }
+        else
+        {
+            correct += 1;
+        }
+        n++;
+    }
+
+    printf("Out of sample, Correct: %ld Incorrect: %ld\n", correct, n - correct);
+    return Incorrect;
 }
 
 int main()
@@ -382,16 +452,41 @@ int main()
     printf("Generating FloatSample...\n");
     vector<RndInterval> X = GenerateFloatSample();
 
-    printf("Generating RndIntervals...\n");
-    vector<RndInterval> L = CalcRndIntervals(X);
+    vector<RndInterval> Incorrect;
+    Polynomial P;
 
-    printf("Generating RedIntervals...\n");
-    vector<RndInterval> L2 = CalcRedIntervals(L);
+    do
+    {
+        // new sample adds 10 more values to X from incorrect
+        if (Incorrect.size() < 10)
+        {
+            for (int i = 0; i < Incorrect.size(); i++)
+            {
+                RndInterval I = Incorrect.at(i);
+                X.push_back(I);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                RndInterval I = Incorrect.at(floor(i * Incorrect.size() / 11));
+                X.push_back(I);
+            }
+        }
+        printf("Sample size: %ld\n", X.size());
+        printf("Generating RndIntervals...\n");
+        vector<RndInterval> L = CalcRndIntervals(X);
 
-    printf("Generating Polynomial...\n");
-    Polynomial P = GeneratePolynomial(L2);
+        printf("Generating RedIntervals...\n");
+        vector<RndInterval> L2 = CalcRedIntervals(L);
 
-    Verify(L2, P);
+        printf("Generating Polynomial...\n");
+        P = GeneratePolynomial(L2);
+
+        Verify(L2, P);
+        Incorrect = VerifyAll(L2, P);
+    } while (Incorrect.size() > 0);
 
     for (int i = 0; i < P.termsize; i++)
     {
