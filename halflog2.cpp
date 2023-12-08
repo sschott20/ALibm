@@ -51,14 +51,6 @@ double RangeReduction(half x)
     // reduces x to [0.5, 1)
     int exp;
     double sig = half_float::frexp(x, &exp);
-    // exp -= 1;
-    // sig *= 2;
-    // print_binary_half(x);
-    // std::cout << x << " makes " << sig << " * 2^" << exp - 1 << '\n';
-
-    // return sig * 2;
-    // printf("x = %4.15f sig = %4.15f exp = %d\n", (double)x, sig, exp);
-
     return sig;
 }
 
@@ -66,11 +58,6 @@ double OutputCompensation(half x, double yp)
 {
     int exp;
     double sig = half_float::frexp(x, &exp);
-    // sig *= 2;
-    // exp -= 1;
-    // return yp + exp - 1;
-    // printf("x = %4.15f yp = %4.15f, exp = %d\n", (double)x, yp, exp);
-
     return yp + exp;
 }
 
@@ -78,10 +65,6 @@ double InverseOutputCompensation(half x, double yp)
 {
     int exp;
     double sig = half_float::frexp(x, &exp);
-    // sig *= 2;
-    // exp -= 1;
-    // return yp - (exp + 1);
-    // printf("x = %4.15f yp = %4.15f, exp = %d ret = %4.15f\n", (double)x, yp, exp, yp - exp + 1);
     return yp - exp;
 }
 
