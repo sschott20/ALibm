@@ -8,45 +8,25 @@
 #include <random>
 #include <soplex.h>
 #include <cstdlib>
-#include "half.hpp"
 #include <math.h>
 #include <bitset>
 #include <iomanip>
-#include "hhelper.hpp"
+#include "fhelper.hpp"
 
 using namespace std;
 using namespace soplex;
-using half_float::half;
-
-void print_binary_half(half h)
-{
-    short n = *(short *)&h;
-
-    unsigned i;
-    for (i = 1 << 15; i > 0; i = i / 2)
-        (n & i) ? printf("1") : printf("0");
-    printf("\n");
-}
 
 vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 {
     vector<RndInterval> X;
     size_t n = 0;
-    half h;
-    half start(min);
-    half end(max);
-    half inf((0x7BFF));
-
-    if (max == -1)
-    {
-        end = inf;
-    }
+    float h;
 
     if (sample_size == -1)
     {
-        for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
+        for (h = min; h < max; h = nextafterf(h, max))
         {
-            if (h == inf)
+            if (h == INFINITY || h == -INFINITY)
             {
                 break;
             }
@@ -63,21 +43,11 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
     }
     else
     {
-        int skip;
-        if (max == INFINITY || min == -INFINITY)
-        {
-            skip = (2 << 16) / sample_size;
-        }
-        else
-        {
-            skip = abs(max - min) / sample_size;
-        }
+        float skip = ceil(abs(max - min)) / sample_size;
 
-        for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
+        for (h = min; h < max; h = nextafterf(h, max))
         {
-            // printf("h: %4.15f\n", (double)h);
-
-            if (h == inf)
+            if (h == INFINITY || h == -INFINITY)
             {
                 break;
             }
@@ -88,13 +58,17 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 
             n++;
             RndInterval I;
-            I.x_orig = h;
-            I.x_rr = RangeReduction(h);
+            float rand_h = h + (float)rand() / (float)(RAND_MAX / (skip));
+            printf("%f\n", rand_h);
+            I.x_orig = rand_h;
+            I.x_rr = RangeReduction(rand_h);
             X.push_back(I);
-            for (int i = 0; i < skip; i++)
-            {
-                h = half_float::nextafter(h, inf);
-            }
+
+            h += skip;
+            // for (int i = 0; i < skip; i++)
+            // {
+            //     h = nextafterf(h, max);
+            // }
         }
     }
     return X;
@@ -103,9 +77,9 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/HRndInterval.txt", "w");
+    fptr = fopen("dump/FRndInterval.txt", "w");
 
-    half y;
+    float y;
     double l, u;
 
     mpfr_t y_mpfr, x_mpfr;
@@ -122,26 +96,24 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
         I.x_rr = X.at(i).x_rr;
         y = EvaluateFunction(y_mpfr, (double)X.at(i).x_orig);
 
-        half inf(half_float::half(0x7BFF));
+        float lhalf(nextafterf((float)y, -INFINITY));
+        float uhalf(nextafterf((float)y, INFINITY));
 
-        half lhalf(half_float::nextafter((half)y, -inf));
-        half uhalf(half_float::nextafter((half)y, inf));
-
-        l = (y + (double)lhalf) / 2;
-        u = (y + (double)uhalf) / 2;
+        l = ((double)y + (double)lhalf) / 2;
+        u = ((double)y + (double)uhalf) / 2;
 
         // printf("x: %4.15f y: %4.15f l: %4.15f u: %4.15f\n", (double)X.at(i).x_orig, (double)y, l, u);
-        while ((half)l != (half)y)
+        while ((float)l != (float)y)
         {
-            l = nextafterf(l, INFINITY);
+            l = nextafter(l, INFINITY);
         }
-        assert((half)l == (half)y);
+        assert((float)l == (float)y);
 
-        while ((half)u != (half)y)
+        while ((float)u != (float)y)
         {
-            u = nextafterf(u, -INFINITY);
+            u = nextafter(u, -INFINITY);
         }
-        assert((half)u == (half)y);
+        assert((float)u == (float)y);
         assert(l < u);
 
         fprintf(fptr, "%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
@@ -157,8 +129,8 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/HRedInterval.txt", "w");
-    half yp;
+    fptr = fopen("dump/FRedInterval.txt", "w");
+    float yp;
     double lp, up;
 
     mpfr_t yp_mpfr, xrr_mpfr;
@@ -183,12 +155,12 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 
         while (OutputCompensation(X.at(i).x_orig, lp) < X.at(i).l)
         {
-            lp = nextafterf(lp, INFINITY);
+            lp = nextafter(lp, INFINITY);
         }
 
         while (OutputCompensation(X.at(i).x_orig, up) > X.at(i).u)
         {
-            up = nextafterf(up, -INFINITY);
+            up = nextafter(up, -INFINITY);
         }
 
         assert(lp <= up);
@@ -248,8 +220,8 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             mysoplex.addRowRational(LPRowRational(lbnd, row1, ubnd));
         }
 
-        mysoplex.writeFileRational("dump/HSoplexRational.lp", NULL, NULL, NULL);
-        mysoplex.writeFileReal("dump/HSoplexReal.lp", NULL, NULL, NULL);
+        mysoplex.writeFileRational("dump/FSoplexRational.lp", NULL, NULL, NULL);
+        mysoplex.writeFileReal("dump/FSoplexReal.lp", NULL, NULL, NULL);
 
         SPxSolver::Status stat;
 
@@ -266,7 +238,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             {
                 P.coefficients.push_back(prim[i]);
             }
-            std::cout << "Status: " << stat << " with " << termsize << "terms" << std::endl;
+            std::cout << "Status: " << stat << " with " << termsize << " terms" << std::endl;
 
             return P;
         }
@@ -304,26 +276,26 @@ double EvaulutePoly(Polynomial P, double xval)
     return acc;
 }
 
-vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
+vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug = 0)
 {
     size_t n = 0;
     size_t correct = 0;
-    half inf(half_float::half(0x7BFF));
+
     vector<RndInterval> Incorrect;
     for (size_t i = 0; i < L2.size(); i++)
     {
         n++;
-        half h(L2.at(i).x_orig);
+        float h = L2.at(i).x_orig;
 
         double x = (double)h;
         double range_reduced = RangeReduction(h);
         double eval = EvaulutePoly(P, range_reduced);
 
-        half y(OutputCompensation(h, eval));
+        float y = OutputCompensation(h, eval);
 
         mpfr_t y_mpfr;
         mpfr_inits2(200, y_mpfr, NULL);
-        half oracle = EvaluateFunction(y_mpfr, x);
+        float oracle = EvaluateFunction(y_mpfr, x);
 
         if (y != oracle)
         {
@@ -331,6 +303,10 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
             I.x_orig = h;
             I.x_rr = range_reduced;
             Incorrect.push_back(I);
+            if (debug)
+            {
+                printf("x: %4.15f y: %4.15f oracle: %4.15f\n", (double)h, (double)y, (double)oracle);
+            }
         }
         else
         {
@@ -344,7 +320,7 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
 
 void print_poly(Polynomial P)
 {
-    FILE *fptr = fopen("dump/HPoly.txt", "w");
+    FILE *fptr = fopen("dump/FPoly.txt", "w");
     for (int i = 0; i < P.termsize; i++)
     {
         printf("%5.60f\n", P.coefficients.at(i));

@@ -12,17 +12,16 @@
 #include <math.h>
 #include <bitset>
 #include <iomanip>
-#include "hhelper.hpp"
+#include "fhelper.hpp"
 
 using namespace std;
 using namespace soplex;
-using half_float::half;
 
-int ComputeSpecialCase(half x)
+int ComputeSpecialCase(float x)
 {
     mpfr_t y_mpfr;
     mpfr_init2(y_mpfr, 200);
-    half y = EvaluateFunction(y_mpfr, x);
+    float y = EvaluateFunction(y_mpfr, x);
 
     if (x <= 0)
     {
@@ -31,33 +30,33 @@ int ComputeSpecialCase(half x)
 
     return 0;
 }
-double RangeReduction(half x)
+double RangeReduction(float x)
 {
     // reduces x to [0.5, 1)
     int exp;
-    double sig = half_float::frexp(x, &exp);
+    double sig = (double)frexp(x, &exp);
     return sig;
 }
 
-double OutputCompensation(half x, double yp)
+double OutputCompensation(float x, double yp)
 {
     int exp;
-    double sig = half_float::frexp(x, &exp);
+    double sig = (double)frexp(x, &exp);
     return yp + exp;
 }
 
-double InverseOutputCompensation(half x, double yp)
+double InverseOutputCompensation(float x, double yp)
 {
     int exp;
-    double sig = (double)half_float::frexp(x, &exp);
+    double sig = (double)frexp(x, &exp);
     return yp - exp;
 }
 
-half EvaluateFunction(mpfr_t y, double x)
+float EvaluateFunction(mpfr_t y, double x)
 {
     mpfr_set_d(y, x, MPFR_RNDN);
     mpfr_log2(y, y, MPFR_RNDN);
-    half h = (half)mpfr_get_d(y, MPFR_RNDN);
+    float h = mpfr_get_flt(y, MPFR_RNDN);
     return h;
 }
 
@@ -65,10 +64,10 @@ half EvaluateFunction(mpfr_t y, double x)
 int main()
 {
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(100, -9999, 9999);
+    vector<RndInterval> X = GenerateFloatSample(100, 0.25, 0.75);
 
     printf("Generating all float values...\n");
-    vector<RndInterval> Test = GenerateFloatSample(-1, -9999, 9999);
+    vector<RndInterval> Test = GenerateFloatSample(1000, 0.25, 0.75);
     vector<RndInterval> Incorrect;
     Polynomial P;
 
@@ -100,14 +99,13 @@ int main()
         printf("Generating Polynomial...\n");
         P = GeneratePolynomial(L2);
 
-        Incorrect = Verify(L2, P);
+        Incorrect = Verify(L2, P, 1);
         if (Incorrect.size() > 0)
         {
             printf("FAILED IN SAMPLE: %ld\n", Incorrect.size());
             return 0;
         }
-        Incorrect = Verify(Test, P);
-        printf("----------------------------------------\n");
+        Incorrect = Verify(Test, P, 0);
     } while (Incorrect.size() > 0);
 
     print_poly(P);
