@@ -8,6 +8,7 @@ TARGET3=float
 
 all: $(TARGET1) $(TARGET2)
 
+.PHONY: $(TARGET1) $(TARGET2) $(TARGET3)
 
 
 $(TARGET1): halflog2.cpp 

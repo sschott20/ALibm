@@ -76,17 +76,32 @@ half EvaluateFunction(mpfr_t y, double x)
     return h;
 }
 
-vector<RndInterval> GenerateFloatSample(int sample_size)
+vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 {
     vector<RndInterval> X;
     size_t n = 0;
     half h;
-    half zero(0.0);
+    half start(min);
+    half end(max);
     half inf((0x7BFF));
+
+    if (max == -1)
+    {
+        end = inf;
+    }
+
+    if (max = INFINITY)
+    {
+        end = inf;
+    }
     if (sample_size == -1)
     {
-        for (h = half_float::nextafter(zero, inf); h != inf; h = half_float::nextafter(h, inf))
+        for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
         {
+            if (h == inf || h == -inf)
+            {
+                break;
+            }
             n++;
             RndInterval I;
             I.x_orig = h;
@@ -97,8 +112,13 @@ vector<RndInterval> GenerateFloatSample(int sample_size)
     else
     {
         int skip = (1 << 16) / sample_size;
-        for (h = half_float::nextafter(zero, inf); h != inf; h = half_float::nextafter(h, inf))
+
+        for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
         {
+            if (h == inf || h == -inf)
+            {
+                break;
+            }
             n++;
             RndInterval I;
             I.x_orig = h;
@@ -110,7 +130,6 @@ vector<RndInterval> GenerateFloatSample(int sample_size)
             }
         }
     }
-    // printf("sample size = %ld\n", n);
     return X;
 }
 
@@ -144,16 +163,15 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
         l = (y + (double)lhalf) / 2;
         u = (y + (double)uhalf) / 2;
 
+        printf("x: %4.15f y: %4.15f l: %4.15f u: %4.15f\n", (double)X.at(i).x_orig, (double)y, l, u);
         while ((half)l != (half)y)
         {
-
             l = nextafterf(l, INFINITY);
         }
         assert((half)l == (half)y);
 
         while ((half)u != (half)y)
         {
-
             u = nextafterf(u, -INFINITY);
         }
         assert((half)u == (half)y);
@@ -359,10 +377,10 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
 int main()
 {
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(100);
+    vector<RndInterval> X = GenerateFloatSample(100, 0, -1);
 
     printf("Generating all float values...\n");
-    vector<RndInterval> Test = GenerateFloatSample(-1);
+    vector<RndInterval> Test = GenerateFloatSample(-1, 0, -1);
     vector<RndInterval> Incorrect;
     Polynomial P;
 

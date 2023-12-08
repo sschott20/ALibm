@@ -96,14 +96,23 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
     vector<RndInterval> X;
     size_t n = 0;
     half h;
-    // half zero(0.0);
     half start(min);
     half end(max);
     half inf((0x7BFF));
+    if (max == -1)
+    {
+        end = inf;
+    }
+
     if (sample_size == -1)
     {
-        for (h = half_float::nextafter(start, inf); h <= max; h = half_float::nextafter(h, inf))
+
+        for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
         {
+            if (h == inf || h == -inf)
+            {
+                break;
+            }
             n++;
             RndInterval I;
             I.x_orig = h;
@@ -113,11 +122,16 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
     }
     else
     {
-        int skip = 10;
-        printf("skip = %d\n", skip);
-
-        for (h = half_float::nextafter(start, inf); h <= max; h = half_float::nextafter(h, inf))
+        int skip = (1 << 16) / sample_size;
+        printf("end: %4.15f\n", (double)end);
+        for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
         {
+            printf("%4.15f\n", (double)h);
+
+            if (h == inf || h == -inf)
+            {
+                break;
+            }
             n++;
             RndInterval I;
             I.x_orig = h;
@@ -129,21 +143,19 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             }
         }
     }
-    // printf("sample size = %ld\n", n);
     return X;
 }
 
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/RndIntervalHalfExpm1.txt", "w");
+    fptr = fopen("dump/RndIntervalHalf.txt", "w");
 
     half y;
     double l, u;
 
     mpfr_t y_mpfr, x_mpfr;
     mpfr_inits2(200, y_mpfr, x_mpfr, NULL);
-    half inf(half_float::half(0x7BFF));
 
     vector<RndInterval> L;
 
@@ -155,16 +167,16 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
         I.x_orig = X.at(i).x_orig;
         I.x_rr = X.at(i).x_rr;
         y = EvaluateFunction(y_mpfr, (double)X.at(i).x_orig);
-        if (y == INFINITY)
-        {
-            break;
-        }
+
+        half inf(half_float::half(0x7BFF));
+
         half lhalf(half_float::nextafter((half)y, -inf));
         half uhalf(half_float::nextafter((half)y, inf));
 
         l = (y + (double)lhalf) / 2;
         u = (y + (double)uhalf) / 2;
 
+        printf("x: %4.15f y: %4.15f l: %4.15f u: %4.15f\n", (double)X.at(i).x_orig, (double)y, l, u);
         while ((half)l != (half)y)
         {
             l = nextafterf(l, INFINITY);
@@ -176,7 +188,6 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
             u = nextafterf(u, -INFINITY);
         }
         assert((half)u == (half)y);
-        // printf("%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
         assert(l < u);
 
         fprintf(fptr, "%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
@@ -192,7 +203,7 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/RedIntervalHalfExpm1.txt", "w");
+    fptr = fopen("dump/RedIntervalHalf.txt", "w");
     half yp;
     double lp, up;
 
@@ -216,18 +227,16 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
         lp = InverseOutputCompensation(X.at(i).x_orig, X.at(i).l);
         up = InverseOutputCompensation(X.at(i).x_orig, X.at(i).u);
 
-        // printf("%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)X.at(i).y, I.l, I.u);
-        // printf("%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_rr, yp, lp, up);
-
         while (OutputCompensation(X.at(i).x_orig, lp) < X.at(i).l)
         {
-            lp = nextafterf(lp, up);
+            lp = nextafterf(lp, INFINITY);
         }
 
         while (OutputCompensation(X.at(i).x_orig, up) > X.at(i).u)
         {
-            up = nextafterf(up, lp);
+            up = nextafterf(up, -INFINITY);
         }
+
         assert(lp <= up);
         fprintf(fptr, "%4.15f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, X.at(i).x_rr, lp, up);
         I.lp = lp;
@@ -381,10 +390,10 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
 int main()
 {
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(100, 0.0, 0.5);
+    vector<RndInterval> X = GenerateFloatSample(100, -1, 1.0);
 
     printf("Generating all float values...\n");
-    vector<RndInterval> Test = GenerateFloatSample(-1, 0.0, 0.5);
+    vector<RndInterval> Test = GenerateFloatSample(-1, -1, 1.0);
     vector<RndInterval> Incorrect;
     Polynomial P;
 
