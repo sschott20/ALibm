@@ -12,29 +12,11 @@
 #include <math.h>
 #include <bitset>
 #include <iomanip>
+#include "hhelper.hpp"
 
 using namespace std;
 using namespace soplex;
 using half_float::half;
-
-struct RndInterval
-{
-    half x_orig;
-    half y;
-    double l;
-    double u;
-
-    double x_rr;
-    double yp;
-    double lp;
-    double up;
-};
-
-struct Polynomial
-{
-    int termsize;
-    vector<double> coefficients;
-};
 
 void print_binary_half(half h)
 {
@@ -44,36 +26,6 @@ void print_binary_half(half h)
     for (i = 1 << 15; i > 0; i = i / 2)
         (n & i) ? printf("1") : printf("0");
     printf("\n");
-}
-
-double RangeReduction(half x)
-{
-    // reduces x to [0.5, 1)
-    int exp;
-    double sig = half_float::frexp(x, &exp);
-    return sig;
-}
-
-double OutputCompensation(half x, double yp)
-{
-    int exp;
-    double sig = half_float::frexp(x, &exp);
-    return yp + exp;
-}
-
-double InverseOutputCompensation(half x, double yp)
-{
-    int exp;
-    double sig = half_float::frexp(x, &exp);
-    return yp - exp;
-}
-
-half EvaluateFunction(mpfr_t y, double x)
-{
-    mpfr_set_d(y, x, MPFR_RNDN);
-    mpfr_log2(y, y, MPFR_RNDN);
-    half h = (half)mpfr_get_d(y, MPFR_RNDN);
-    return h;
 }
 
 vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
@@ -90,10 +42,6 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
         end = inf;
     }
 
-    if (max = INFINITY)
-    {
-        end = inf;
-    }
     if (sample_size == -1)
     {
         for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
@@ -101,6 +49,10 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             if (h == inf || h == -inf)
             {
                 break;
+            }
+            if (ComputeSpecialCase(h) == -1)
+            {
+                continue;
             }
             n++;
             RndInterval I;
@@ -115,6 +67,10 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 
         for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
         {
+            if (ComputeSpecialCase(h) == -1)
+            {
+                continue;
+            }
             if (h == inf || h == -inf)
             {
                 break;
@@ -163,7 +119,7 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
         l = (y + (double)lhalf) / 2;
         u = (y + (double)uhalf) / 2;
 
-        printf("x: %4.15f y: %4.15f l: %4.15f u: %4.15f\n", (double)X.at(i).x_orig, (double)y, l, u);
+        // printf("x: %4.15f y: %4.15f l: %4.15f u: %4.15f\n", (double)X.at(i).x_orig, (double)y, l, u);
         while ((half)l != (half)y)
         {
             l = nextafterf(l, INFINITY);
@@ -237,6 +193,7 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 Polynomial GeneratePolynomial(vector<RndInterval> L)
 {
 
+    cout << "Solving... [1, 30] \n";
     for (int termsize = 1; termsize < 30; termsize++)
     {
         SoPlex mysoplex;
@@ -284,7 +241,6 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
         mysoplex.writeFileReal("dump/dump_real.lp", NULL, NULL, NULL);
 
         SPxSolver::Status stat;
-        cout << "Solving... " << termsize << "\n";
 
         stat = mysoplex.optimize();
         Polynomial P;
@@ -299,6 +255,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             {
                 P.coefficients.push_back(prim[i]);
             }
+            std::cout << "Status: " << stat << " with " << termsize << "terms" << std::endl;
 
             return P;
         }
@@ -314,7 +271,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
                 P.coefficients.push_back(0.0);
             }
         }
-        std::cout << "Status: " << stat << std::endl;
+        // std::cout << "Status: " << stat << std::endl;
     }
 
     Polynomial N;
@@ -374,64 +331,13 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
     return Incorrect;
 }
 
-int main()
+void print_poly(Polynomial P)
 {
-    printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(100, 0, -1);
-
-    printf("Generating all float values...\n");
-    vector<RndInterval> Test = GenerateFloatSample(-1, 0, -1);
-    vector<RndInterval> Incorrect;
-    Polynomial P;
-
-    do
-    {
-        if (Incorrect.size() < 10)
-        {
-            for (int i = 0; i < Incorrect.size(); i++)
-            {
-                RndInterval I = Incorrect.at(i);
-                X.push_back(I);
-            }
-        }
-        else
-        {
-            for (int i = 0; i < 10; i++)
-            {
-                RndInterval I = Incorrect.at(floor(i * Incorrect.size() / 11));
-                X.push_back(I);
-            }
-        }
-        printf("Sample size: %ld\n", X.size());
-        printf("Generating RndIntervals...\n");
-        vector<RndInterval> L = CalcRndIntervals(X);
-
-        printf("Generating RedIntervals...\n");
-        vector<RndInterval> L2 = CalcRedIntervals(L);
-
-        printf("Generating Polynomial...\n");
-        P = GeneratePolynomial(L2);
-
-        Incorrect = Verify(L2, P);
-        if (Incorrect.size() > 0)
-        {
-            printf("FAILED IN SAMPLE: %ld\n", Incorrect.size());
-            return 0;
-        }
-        Incorrect = Verify(Test, P);
-    } while (Incorrect.size() > 0);
-
-    for (int i = 0; i < P.termsize; i++)
-    {
-        printf("%5.60f\n", P.coefficients.at(i));
-    }
-
     FILE *fptr = fopen("dump/poly.txt", "w");
     for (int i = 0; i < P.termsize; i++)
     {
+        printf("%5.60f\n", P.coefficients.at(i));
         fprintf(fptr, "%5.60f\n", P.coefficients.at(i));
     }
     fclose(fptr);
-
-    printf("Finished!\n");
 }

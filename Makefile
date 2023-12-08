@@ -3,7 +3,8 @@ CXXFLAGS=-O2 -I/home/soplex-4.0.1//src/ -std=c++11
 LIBS= /home/soplex-4.0.1//build/lib/libsoplex.a -lgmp -lz -lm -lmpfr 
 TARGET1=hlog2
 TARGET2=hexpm1
-TARGET3=float
+TARGET3=flog2
+
 
 
 all: $(TARGET1) $(TARGET2)
@@ -11,19 +12,19 @@ all: $(TARGET1) $(TARGET2)
 .PHONY: $(TARGET1) $(TARGET2) $(TARGET3)
 
 
-$(TARGET1): halflog2.cpp 
-	$(CXX) $(CXXFLAGS) $< $(LIBS) -o $@
+$(TARGET1): hlog2.cpp hhelper.cpp
+	$(CXX) $(CXXFLAGS) $< hhelper.cpp $(LIBS) -o $@
 	./$(TARGET1)
 
-$(TARGET2): halfexpm1.cpp 
-	$(CXX) $(CXXFLAGS) $< $(LIBS) -o $@
+$(TARGET2): hexpm1.cpp hhelper.cpp
+	$(CXX) $(CXXFLAGS) $< hhelper.cpp $(LIBS) -o $@
 	./$(TARGET2)
 
-$(TARGET3): float.cpp
-	$(CXX) $(CXXFLAGS) $< $(LIBS) -o $@
-	./$(TARGET2)
+$(TARGET3): flog2.cpp fhelper.cpp
+	$(CXX) $(CXXFLAGS) $< fhelper.cpp $(LIBS) -o $@
+	./$(TARGET3)
 
 
 clean:
-	rm -f $(TARGET1) $(TARGET2)
+	rm -f $(TARGET1) $(TARGET2) $(TARGET3)
 
