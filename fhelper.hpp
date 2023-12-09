@@ -32,11 +32,6 @@ struct Polynomial
     int termsize;
     vector<double> coefficients;
 };
-struct Polynomial
-{
-    int termsize;
-    vector<long double> coefficients;
-};
 typedef union
 {
     float f;
