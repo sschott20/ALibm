@@ -297,7 +297,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             P.termsize = termsize;
             for (int i = 0; i < termsize; i++)
             {
-                P.coefficients.push_back(prim[i]);
+                P.coefficients.push_back((long double)prim[i]);
                 // P.coefficients.push_back(prim[i].doubleValue())
                 // P.coefficients.push_back(mpq_get_d(*(prim[i].getMpqPtr())));
             }
@@ -326,8 +326,8 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
 
 double EvaulutePoly(Polynomial P, double xval)
 {
-    double acc = 0.0;
-    double power = 1.0;
+    long double acc = 0.0;
+    long double power = 1.0;
 
     for (int i = 0; i < P.termsize; i++)
     {
