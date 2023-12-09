@@ -12,6 +12,7 @@
 #include <math.h>
 #include <bitset>
 #include <iomanip>
+#include "luts.h"
 #include "fhelper.hpp"
 
 using namespace std;
@@ -19,15 +20,21 @@ using namespace soplex;
 
 int ComputeSpecialCase(float x)
 {
-    mpfr_t y_mpfr;
-    mpfr_init2(y_mpfr, 200);
-    float y = EvaluateFunction(y_mpfr, x);
-
-    if (x <= 0)
+    floatX fx;
+    fx.f = x;
+    if (x == 0.0)
     {
-        return -1;
+        return 1;
     }
-
+    else if (fx.x == 0x7F800000)
+    {
+        return 1;
+    }
+    else if (fx.x > 0x7F800000)
+    {
+        fx.x = 0x7FFF0000;
+        return 1;
+    }
     return 0;
 }
 double RangeReduction(float x)
@@ -36,6 +43,26 @@ double RangeReduction(float x)
     int exp;
     double sig = (double)frexp(x, &exp);
     return sig;
+    // floatX fix, fit;
+    // int m = 0;
+    // fix.f = x;
+    // if (fix.x < 0x800000)
+    // {
+    //     fix.f *= pow(2, 23);
+    //     m -= 23;
+    // }
+    // m += fix.x >> 23;
+    // m -= 127;
+    // fix.x &= 0x007FFFFF;
+    // fix.x |= 0x3F800000;
+
+    // fit.x = fix.x & 0x007F0000;
+    // int FIndex = fit.x >> 16;
+    // fit.x |= 0x3F800000;
+    // double F = fit.f;
+
+    // double f = fix.f - F;
+    // return f * log2OneByF[FIndex];
 }
 
 double OutputCompensation(float x, double yp)
@@ -43,13 +70,38 @@ double OutputCompensation(float x, double yp)
     int exp;
     double sig = (double)frexp(x, &exp);
     return yp + exp;
+    // floatX fix, fit;
+
+    // int m = 0;
+    // fix.f = x;
+    // if (fix.x < 0x800000)
+    // {
+    //     fix.f *= pow(2, 23);
+    //     m -= 23;
+    // }
+    // m += fix.x >> 23;
+    // m -= 127;
+    // fix.x &= 0x007FFFFF;
+    // fix.x |= 0x3F800000;
+
+    // fit.x = fix.x & 0x007F0000;
+    // int FIndex = fit.x >> 16;
+
+    // return yp + log2Lut[FIndex] + m;
 }
 
-double InverseOutputCompensation(float x, double yp)
+double GuessInitial(float x, double &lb, double &ub)
 {
-    int exp;
-    double sig = (double)frexp(x, &exp);
-    return yp - exp;
+    // int exp;
+    // double sig = (double)frexp(x, &exp);
+    // return yp - exp;
+    // lb = log1p(xp) / log(2);
+    // ub = log1p(xp) / log(2);
+    double xrr = RangeReduction(x);
+    double yp = log2(xrr);
+    lb = yp;
+    ub = yp;
+    return 0;
 }
 
 float EvaluateFunction(mpfr_t y, double x)
@@ -63,11 +115,12 @@ float EvaluateFunction(mpfr_t y, double x)
 #define GROW 10
 int main()
 {
+
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(100, 0.25, 0.75);
+    vector<RndInterval> X = GenerateFloatSample(1000, 0.25, 0.75);
 
     printf("Generating all float values...\n");
-    vector<RndInterval> Test = GenerateFloatSample(1000, 0.25, 0.75);
+    vector<RndInterval> Test = GenerateFloatSample(100000, 0.25, 0.75);
     vector<RndInterval> Incorrect;
     Polynomial P;
 

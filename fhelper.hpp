@@ -32,7 +32,17 @@ struct Polynomial
     int termsize;
     vector<double> coefficients;
 };
+typedef union
+{
+    float f;
+    unsigned x;
+} floatX;
 
+typedef union
+{
+    double d;
+    unsigned long long int x;
+} doubleX;
 double RangeReduction(float x);
 double OutputCompensation(float x, double yp);
 double InverseOutputCompensation(float x, double yp);
@@ -46,3 +56,4 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug);
 int ComputeSpecialCase(float x);
 void print_poly(Polynomial P);
 float generateRandomFloat(float a, float b);
+double GuessInitial(float x, double &lb, double &ub);

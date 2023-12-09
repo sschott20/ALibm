@@ -59,7 +59,6 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             n++;
             RndInterval I;
             float rand_h = h + (float)rand() / (float)(RAND_MAX / (skip));
-            printf("%f\n", rand_h);
             I.x_orig = rand_h;
             I.x_rr = RangeReduction(rand_h);
             X.push_back(I);
@@ -102,21 +101,25 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
         l = ((double)y + (double)lhalf) / 2;
         u = ((double)y + (double)uhalf) / 2;
 
-        // printf("x: %4.15f y: %4.15f l: %4.15f u: %4.15f\n", (double)X.at(i).x_orig, (double)y, l, u);
+        // printf("x: %4.40f y: %4.40f l: %4.40f u: %4.40f\n", (double)X.at(i).x_orig, (double)y, l, u);
         while ((float)l != (float)y)
         {
             l = nextafter(l, INFINITY);
         }
-        assert((float)l == (float)y);
+        // l = nextafter(l, INFINITY);
 
-        while ((float)u != (float)y)
+        assert((float)l == y);
+
+        while ((float)u != y)
         {
             u = nextafter(u, -INFINITY);
         }
+        // u = nextafter(u, -INFINITY);
+
         assert((float)u == (float)y);
         assert(l < u);
 
-        fprintf(fptr, "%4.15f %4.15f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
+        fprintf(fptr, "%4.40f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
         I.y = y;
         I.l = l;
         I.u = u;
@@ -150,21 +153,79 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
         I.l = X.at(i).l;
         I.u = X.at(i).u;
 
-        lp = InverseOutputCompensation(X.at(i).x_orig, X.at(i).l);
-        up = InverseOutputCompensation(X.at(i).x_orig, X.at(i).u);
+        // lp = InverseOutputCompensation(X.at(i).x_orig, X.at(i).l);
+        // up = InverseOutputCompensation(X.at(i).x_orig, X.at(i).u);
+        // while (OutputCompensation(X.at(i).x_orig, lp) < X.at(i).l)
+        // {
+        //     lp = nextafter(lp, INFINITY);
+        // }
 
-        while (OutputCompensation(X.at(i).x_orig, lp) < X.at(i).l)
-        {
-            lp = nextafter(lp, INFINITY);
-        }
+        // while (OutputCompensation(X.at(i).x_orig, up) > X.at(i).u)
+        // {
+        //     up = nextafter(up, -INFINITY);
+        // }
 
-        while (OutputCompensation(X.at(i).x_orig, up) > X.at(i).u)
+        GuessInitial(X.at(i).x_orig, lp, up);
+        unsigned long long step = 0x8000000000000llu;
+        double oc;
+        while (step > 0)
         {
-            up = nextafter(up, -INFINITY);
+            doubleX dx;
+            dx.d = lp;
+            if (dx.d >= 0)
+            {
+                dx.x -= step;
+            }
+            else
+            {
+                dx.x += step;
+            }
+
+            oc = OutputCompensation(X.at(i).x_orig, dx.d);
+            if (oc >= X.at(i).l && oc <= X.at(i).u)
+            {
+                lp = dx.d;
+            }
+            else
+            {
+                step /= 2;
+            }
         }
+        step = 0x8000000000000llu;
+        while (step > 0)
+        {
+            doubleX dx;
+            dx.d = up;
+            if (dx.d >= 0)
+            {
+                dx.x += step;
+            }
+            else
+            {
+                dx.x -= step;
+            }
+
+            oc = OutputCompensation(X.at(i).x_orig, dx.d);
+            if (oc > X.at(i).l && oc < X.at(i).u)
+            {
+                up = dx.d;
+            }
+            else
+            {
+                step /= 2;
+            }
+        }
+        // printf("x: %4.40f xrr: %4.40f y: %4.40f lp: %4.40f up: %4.40f\n", X.at(i).x_orig, X.at(i).x_rr, X.at(i).y, lp, up);
+
+        oc = OutputCompensation(X.at(i).x_orig, lp);
+        // printf("oc: %4.40f\n", (float)oc);
+        assert((float)oc == X.at(i).y);
+        oc = OutputCompensation(X.at(i).x_orig, up);
+        // printf("oc: %4.40f\n", (float)oc);
+        assert((float)oc == X.at(i).y);
 
         assert(lp <= up);
-        fprintf(fptr, "%4.15f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, X.at(i).x_rr, lp, up);
+        fprintf(fptr, "%4.40f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, X.at(i).x_rr, lp, up);
         I.lp = lp;
         I.up = up;
 
@@ -237,6 +298,8 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             for (int i = 0; i < termsize; i++)
             {
                 P.coefficients.push_back(prim[i]);
+                // P.coefficients.push_back(prim[i].doubleValue())
+                // P.coefficients.push_back(mpq_get_d(*(prim[i].getMpqPtr())));
             }
             std::cout << "Status: " << stat << " with " << termsize << " terms" << std::endl;
 
@@ -290,13 +353,13 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug = 0)
         double x = (double)h;
         double range_reduced = RangeReduction(h);
         double eval = EvaulutePoly(P, range_reduced);
-
-        float y = OutputCompensation(h, eval);
+        double oc = OutputCompensation(h, eval);
+        float y = (float)oc;
 
         mpfr_t y_mpfr;
         mpfr_inits2(200, y_mpfr, NULL);
         float oracle = EvaluateFunction(y_mpfr, x);
-
+        assert(oracle == L2.at(i).y);
         if (y != oracle)
         {
             RndInterval I;
@@ -305,7 +368,9 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug = 0)
             Incorrect.push_back(I);
             if (debug)
             {
-                printf("x: %4.15f y: %4.15f oracle: %4.15f\n", (double)h, (double)y, (double)oracle);
+                printf("x: %4.40f y: %4.40f oracle: %4.40f\n", h, y, oracle);
+                // printf("xrr: %4.40f eval: %4.40f\n", range_reduced, eval);
+                // printf("lp: %4.40f up: %4.40f\n", L2.at(i).lp, L2.at(i).up);
             }
         }
         else

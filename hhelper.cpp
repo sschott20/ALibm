@@ -63,15 +63,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
     }
     else
     {
-        int skip;
-        if (max == INFINITY || min == -INFINITY)
-        {
-            skip = (2 << 16) / sample_size;
-        }
-        else
-        {
-            skip = abs(max - min) / sample_size;
-        }
+        int skip = (1 << 16) / sample_size;
 
         for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
         {

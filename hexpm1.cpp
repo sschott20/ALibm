@@ -83,7 +83,7 @@ half EvaluateFunction(mpfr_t y, double x)
 int main()
 {
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(10, -10, 10);
+    vector<RndInterval> X = GenerateFloatSample(10, -1, 1);
 
     printf("Generating all float values...\n");
     vector<RndInterval> Test = GenerateFloatSample(-1, -1, 1);
