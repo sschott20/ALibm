@@ -8,7 +8,6 @@
 #include <random>
 #include <soplex.h>
 #include <cstdlib>
-#include "half.hpp"
 #include <math.h>
 #include <bitset>
 #include <iomanip>
@@ -22,19 +21,19 @@ int ComputeSpecialCase(float x)
 {
     floatX fx;
     fx.f = x;
-    if (x == 0.0)
+    if (x <= 0.0)
     {
-        return 1;
+        return -1;
     }
-    else if (fx.x == 0x7F800000)
+    else if (fx.x >= 0x7F800000)
     {
-        return 1;
+        return -1;
     }
-    else if (fx.x > 0x7F800000)
+    else if (fx.f == 2.0037834644317626953125000000000000000000)
     {
-        fx.x = 0x7FFF0000;
-        return 1;
+        return -1;
     }
+
     return 0;
 }
 double RangeReduction(float x)
@@ -117,10 +116,10 @@ int main()
 {
 
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(1000, 2, 2.5);
+    vector<RndInterval> X = GenerateFloatSample(1, 2, 2.01);
 
     printf("Generating all float values...\n");
-    vector<RndInterval> Test = GenerateFloatSample(100000, 2, 2.5);
+    vector<RndInterval> Test = GenerateFloatSample(-1, 2, 2.01);
     vector<RndInterval> Incorrect;
     Polynomial P;
 
@@ -159,6 +158,9 @@ int main()
             // return 0;
         }
         Incorrect = Verify(Test, P, 0);
+        // print_poly(P);
+        printf("----------------------------------------\n");
+
     } while (Incorrect.size() > 0);
 
     print_poly(P);

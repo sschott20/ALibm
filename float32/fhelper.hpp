@@ -25,6 +25,19 @@ struct RndInterval
     double yp;
     double lp;
     double up;
+
+    bool operator<(RndInterval &other) const
+    {
+        // return std::make_tuple(fromX, fromY, toX, toY) < std::make_tuple(other.fromX, other.fromY, other.toX, other.toY);
+        return x_orig < other.x_orig;
+    }
+
+    bool operator==(RndInterval &other) const
+    {
+        // declare how 2 variable of type posToMove should be compared with ==
+        // return std::make_tuple(fromX, fromY, toX, toY) == std::make_tuple(other.fromX, other.fromY, other.toX, other.toY);
+        return x_orig == other.x_orig;
+    }
 };
 
 struct Polynomial
@@ -57,3 +70,4 @@ int ComputeSpecialCase(float x);
 void print_poly(Polynomial P);
 float generateRandomFloat(float a, float b);
 double GuessInitial(float x, double &lb, double &ub);
+bool CompareX(RndInterval a, RndInterval b);

@@ -44,6 +44,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 
     if (sample_size == -1)
     {
+        size_t removed_special = 0;
         for (h = half_float::nextafter(start, end); h < end; h = half_float::nextafter(h, end))
         {
             if (h == inf)
@@ -52,6 +53,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             }
             if (ComputeSpecialCase(h) == -1)
             {
+                removed_special++;
                 continue;
             }
             n++;
@@ -60,6 +62,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             I.x_rr = RangeReduction(h);
             X.push_back(I);
         }
+        printf("Removed Special: %ld\n", removed_special);
     }
     else
     {
@@ -95,7 +98,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/HRndInterval.txt", "w");
+    fptr = fopen("../dump/HRndInterval.txt", "w");
 
     half y;
     double l, u;
@@ -146,10 +149,10 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
     return L;
 }
 
-vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
+vector<RndInterval> Calc vals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/HRedInterval.txt", "w");
+    fptr = fopen("../dump/HRedInterval.txt", "w");
     half yp;
     double lp, up;
 
@@ -336,7 +339,7 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P)
 
 void print_poly(Polynomial P)
 {
-    FILE *fptr = fopen("dump/HPoly.txt", "w");
+    FILE *fptr = fopen("../dump/HPoly.txt", "w");
     for (int i = 0; i < P.termsize; i++)
     {
         printf("%5.60f\n", P.coefficients.at(i));

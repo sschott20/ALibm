@@ -132,7 +132,7 @@ int main()
         printf("%5.60f\n", P.coefficients.at(i));
     }
 
-    FILE *fptr = fopen("dump/poly.txt", "w");
+    FILE *fptr = fopen("../dump/poly.txt", "w");
     for (int i = 0; i < P.termsize; i++)
     {
         fprintf(fptr, "%5.60f\n", P.coefficients.at(i));

@@ -43,7 +43,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
     }
     else
     {
-        float skip = ceil(abs(max - min)) / sample_size;
+        long skip = (1 << 16) / sample_size;
 
         for (h = min; h < max; h = nextafterf(h, max))
         {
@@ -58,16 +58,16 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 
             n++;
             RndInterval I;
-            float rand_h = h + (float)rand() / (float)(RAND_MAX / (skip));
-            I.x_orig = rand_h;
-            I.x_rr = RangeReduction(rand_h);
+            // float rand_h = h + (float)rand() / (float)(RAND_MAX / (skip));
+            I.x_orig = h;
+            I.x_rr = RangeReduction(h);
             X.push_back(I);
 
-            h += skip;
-            // for (int i = 0; i < skip; i++)
-            // {
-            //     h = nextafterf(h, max);
-            // }
+            // h += skip;
+            for (int i = 0; i < skip; i++)
+            {
+                h = nextafterf(h, max);
+            }
         }
     }
     return X;
@@ -76,7 +76,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/FRndInterval.txt", "w");
+    fptr = fopen("../dump/FRndInterval.txt", "w");
 
     float y;
     double l, u;
@@ -126,13 +126,15 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 
         L.push_back(I);
     }
+    std::sort(L.begin(), L.end());
+    L.erase(std::unique(L.begin(), L.end()), L.end());
     return L;
 }
 
 vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
-    fptr = fopen("dump/FRedInterval.txt", "w");
+    fptr = fopen("../dump/FRedInterval.txt", "w");
     float yp;
     double lp, up;
 
@@ -281,8 +283,8 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             mysoplex.addRowRational(LPRowRational(lbnd, row1, ubnd));
         }
 
-        mysoplex.writeFileRational("dump/FSoplexRational.lp", NULL, NULL, NULL);
-        mysoplex.writeFileReal("dump/FSoplexReal.lp", NULL, NULL, NULL);
+        mysoplex.writeFileRational("../dump/FSoplexRational.lp", NULL, NULL, NULL);
+        mysoplex.writeFileReal("../dump/FSoplexReal.lp", NULL, NULL, NULL);
 
         SPxSolver::Status stat;
 
@@ -384,7 +386,7 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug = 0)
 
 void print_poly(Polynomial P)
 {
-    FILE *fptr = fopen("dump/FPoly.txt", "w");
+    FILE *fptr = fopen("../dump/FPoly.txt", "w");
     for (int i = 0; i < P.termsize; i++)
     {
         printf("%5.60f\n", P.coefficients.at(i));
