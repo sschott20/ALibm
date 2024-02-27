@@ -2,6 +2,10 @@
 Fall 2023
 Sebastian (Alex) Schott
 
+
+Full Report: https://shorturl.at/cftuB
+
+
 ## BACKGROUND
 The world runs on real numbers. All scientific endeavors use math libraries to approximate elementary functions (e.g. ln(x) or ex). Unfortunately, the implementations in the most widely used math libraries (e.g. math.h) do not produce the correctly rounded result for all inputs. At each calculation, the error is small, but when compounded multiple times the error can be significant. 
 
