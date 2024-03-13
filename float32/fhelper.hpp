@@ -64,7 +64,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max);
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X);
 vector<RndInterval> CalcRedIntervals(vector<RndInterval> X);
 Polynomial GeneratePolynomial(vector<RndInterval> L);
-double EvaulutePoly(Polynomial P, double xval);
+long double EvaulutePoly(Polynomial P, double xval);
 vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug);
 int ComputeSpecialCase(float x);
 void print_poly(Polynomial P);

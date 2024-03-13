@@ -39,11 +39,18 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             I.x_orig = h;
             I.x_rr = RangeReduction(h);
             X.push_back(I);
+            // printf("Sample size: %ld\n", n);
+
+            // for (int i = 0; i < 2; i++)
+            // {
+            //     h = nextafterf(h, max);
+            // }
         }
     }
     else
     {
-        long skip = (1 << 16) / sample_size;
+        // long skip = (1 << 16) / sample_size;
+        unsigned long long skip = (1 << 31) / sample_size;
 
         for (h = min; h < max; h = nextafterf(h, max))
         {
@@ -70,6 +77,7 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             }
         }
     }
+    printf("Sample size: %ld\n", X.size());
     return X;
 }
 
@@ -119,7 +127,7 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
         assert((float)u == (float)y);
         assert(l < u);
 
-        fprintf(fptr, "%4.40f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
+        // fprintf(fptr, "%4.40f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, (double)y, l, u);
         I.y = y;
         I.l = l;
         I.u = u;
@@ -170,7 +178,9 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
         GuessInitial(X.at(i).x_orig, lp, up);
         unsigned long long step = 0x8000000000000llu;
         double oc;
-        while (step > 0)
+        // while (step > 0)
+        while (step >= 0x0000000000800llu)
+
         {
             doubleX dx;
             dx.d = lp;
@@ -183,8 +193,8 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
                 dx.x += step;
             }
 
-            oc = OutputCompensation(X.at(i).x_orig, dx.d);
-            if (oc >= X.at(i).l && oc <= X.at(i).u)
+            oc = OutputCompensation(I.x_orig, dx.d);
+            if (oc >= I.l && oc <= I.u)
             {
                 lp = dx.d;
             }
@@ -194,7 +204,8 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
             }
         }
         step = 0x8000000000000llu;
-        while (step > 0)
+        // while (step > 0)
+        while (step >= 0x0000000000800llu)
         {
             doubleX dx;
             dx.d = up;
@@ -207,8 +218,8 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
                 dx.x -= step;
             }
 
-            oc = OutputCompensation(X.at(i).x_orig, dx.d);
-            if (oc > X.at(i).l && oc < X.at(i).u)
+            oc = OutputCompensation(I.x_orig, dx.d);
+            if (oc > I.l && oc < I.u)
             {
                 up = dx.d;
             }
@@ -217,17 +228,19 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
                 step /= 2;
             }
         }
-        // printf("x: %4.40f xrr: %4.40f y: %4.40f lp: %4.40f up: %4.40f\n", X.at(i).x_orig, X.at(i).x_rr, X.at(i).y, lp, up);
 
-        oc = OutputCompensation(X.at(i).x_orig, lp);
-        // printf("oc: %4.40f\n", (float)oc);
-        assert((float)oc == X.at(i).y);
-        oc = OutputCompensation(X.at(i).x_orig, up);
-        // printf("oc: %4.40f\n", (float)oc);
-        assert((float)oc == X.at(i).y);
+        // printf("x: %4.40f xrr: %4.40f y: %4.40f l: %4.40f u: %4.40f lp: %4.40f up: %4.40f\n", I.x_orig, I.x_rr, I.y, I.l, I.u, lp, up);
+
+        oc = OutputCompensation(I.x_orig, lp);
+        // printf("oc: %4.40f\n", oc);
+        assert((float)oc == I.y);
+        oc = OutputCompensation(I.x_orig, up);
+        // printf("oc: %4.40f\n", oc);
+        assert((float)oc == I.y);
 
         assert(lp <= up);
-        fprintf(fptr, "%4.40f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, X.at(i).x_rr, lp, up);
+        // fprintf(fptr, "%4.40f %4.40f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, X.at(i).x_rr, X.at(i).y, X.at(i).l, X.at(i).u);
+        // fprintf(fptr, "%4.40f %4.40f %4.40f  \n", (double)X.at(i).yp, X.at(i).lp, X.at(i).up);
         I.lp = lp;
         I.up = up;
 
@@ -239,9 +252,10 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 Polynomial GeneratePolynomial(vector<RndInterval> L)
 {
 
-    cout << "Solving... [1, 30] \n";
-    for (int termsize = 1; termsize < 30; termsize++)
+    cout << "Solving... [1, 50] \n";
+    for (int termsize = 1; termsize < 50; termsize++)
     {
+        printf("Termsize: %d\n", termsize);
         SoPlex mysoplex;
         mysoplex.setBoolParam(SoPlex::RATFACJUMP, true);
         mysoplex.setIntParam(SoPlex::SOLVEMODE, 2);
@@ -319,17 +333,17 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
                 P.coefficients.push_back(0.0);
             }
         }
-        // std::cout << "Status: " << stat << std::endl;
+        std::cout << "Status: " << stat << std::endl;
     }
 
     Polynomial N;
     return N;
 }
 
-double EvaulutePoly(Polynomial P, double xval)
+long double EvaulutePoly(Polynomial P, double xval)
 {
-    double acc = 0.0;
-    double power = 1.0;
+    long double acc = 0.0;
+    long double power = 1.0;
 
     for (int i = 0; i < P.termsize; i++)
     {
@@ -354,7 +368,7 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug = 0)
 
         double x = (double)h;
         double range_reduced = RangeReduction(h);
-        double eval = EvaulutePoly(P, range_reduced);
+        long double eval = EvaulutePoly(P, range_reduced);
         double oc = OutputCompensation(h, eval);
         float y = (float)oc;
 
