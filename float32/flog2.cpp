@@ -116,11 +116,11 @@ int main()
 {
 
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(10, 2, 2.25);
+    vector<RndInterval> X = GenerateFloatSample(10, 1, 2);
 
     printf("Generating all float values...\n");
 
-    vector<RndInterval> Test = GenerateFloatSample(-1, 2, 2.25);
+    vector<RndInterval> Test = GenerateFloatSample(-1, 1, 2);
     vector<RndInterval> Incorrect;
     Polynomial P;
 
@@ -164,10 +164,10 @@ int main()
         printf("----------------------------------------\n");
 
     } while (Incorrect.size() > 0);
-    Test = GenerateFloatSample(-1, 2, 10);
+    // Test = GenerateFloatSample(-1, 2, 10);
 
     // Test = GenerateFloatSample(-1, 0.1, 99999999999);
-    Incorrect = Verify(Test, P, 0);
+    FullTest(P, 2, 20);
     print_poly(P);
     printf("Finished!\n");
 }

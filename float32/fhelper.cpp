@@ -41,10 +41,10 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             X.push_back(I);
             // printf("Sample size: %ld\n", n);
 
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     h = nextafterf(h, max);
-            // }
+            for (int i = 0; i < 6; i++)
+            {
+                h = nextafterf(h, max);
+            }
         }
     }
     else
@@ -255,7 +255,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
     cout << "Solving... [1, 50] \n";
     for (int termsize = 1; termsize < 50; termsize++)
     {
-        printf("Termsize: %d\n", termsize);
+        // printf("Termsize: %d\n", termsize);
         SoPlex mysoplex;
         mysoplex.setBoolParam(SoPlex::RATFACJUMP, true);
         mysoplex.setIntParam(SoPlex::SOLVEMODE, 2);
@@ -333,7 +333,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
                 P.coefficients.push_back(0.0);
             }
         }
-        std::cout << "Status: " << stat << std::endl;
+        // std::cout << "Status: " << stat << std::endl;
     }
 
     Polynomial N;
@@ -407,4 +407,53 @@ void print_poly(Polynomial P)
         fprintf(fptr, "%5.60f\n", P.coefficients.at(i));
     }
     fclose(fptr);
+}
+
+void FullTest(Polynomial P, float min, float max)
+{
+    size_t n = 0;
+    size_t correct = 0;
+
+    vector<RndInterval> Incorrect;
+
+    for (float h = min; h < max; h = nextafterf(h, max))
+    {
+        // printf("x: %4.70f\n", h);
+        if (h == INFINITY || h == -INFINITY)
+        {
+            break;
+        }
+        if (ComputeSpecialCase(h) == -1)
+        {
+            continue;
+        }
+        n++;
+
+        double x = (double)h;
+        double range_reduced = RangeReduction(h);
+        long double eval = EvaulutePoly(P, range_reduced);
+        double oc = OutputCompensation(h, eval);
+        float y = (float)oc;
+
+        mpfr_t y_mpfr;
+        mpfr_inits2(200, y_mpfr, NULL);
+        float oracle = EvaluateFunction(y_mpfr, x);
+        if (y != oracle)
+        {
+            RndInterval I;
+            I.x_orig = h;
+            I.x_rr = range_reduced;
+            Incorrect.push_back(I);
+        }
+        else
+        {
+            correct += 1;
+        }
+        for (int i = 0; i < 5; i++)
+        {
+            h = nextafterf(h, max);
+        }
+    }
+
+    printf("Full Test Results, Correct: %ld Incorrect: %ld\n", correct, n - correct);
 }

@@ -56,6 +56,7 @@ typedef union
     double d;
     unsigned long long int x;
 } doubleX;
+void FullTest(Polynomial P, float min = 0.0, float max = INFINITY);
 double RangeReduction(float x);
 double OutputCompensation(float x, double yp);
 double InverseOutputCompensation(float x, double yp);

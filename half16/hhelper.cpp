@@ -149,7 +149,7 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
     return L;
 }
 
-vector<RndInterval> Calc vals(vector<RndInterval> X)
+vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
 {
     FILE *fptr;
     fptr = fopen("../dump/HRedInterval.txt", "w");
