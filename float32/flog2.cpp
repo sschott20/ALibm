@@ -112,15 +112,17 @@ float EvaluateFunction(mpfr_t y, double x)
 }
 
 #define GROW 10
+#define LOW 0
+#define HIGH 10
 int main()
 {
 
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(10, 1, 2);
+    vector<RndInterval> X = GenerateFloatSample(10, LOW, HIGH);
 
     printf("Generating all float values...\n");
 
-    vector<RndInterval> Test = GenerateFloatSample(-1, 1, 2);
+    vector<RndInterval> Test = GenerateFloatSample(-1, LOW, HIGH);
     vector<RndInterval> Incorrect;
     Polynomial P;
 
@@ -139,6 +141,14 @@ int main()
             for (int i = 0; i < GROW; i++)
             {
                 RndInterval I = Incorrect.at(floor(i * Incorrect.size() / GROW));
+                for (size_t j = 0; j < X.size(); j++)
+                {
+                    if (X.at(j).x_orig == I.x_orig || X.at(j).x_rr == I.x_rr)
+                    {
+                        printf("Duplicate\n");
+                        break;
+                    }
+                }
                 X.push_back(I);
             }
         }
@@ -156,18 +166,15 @@ int main()
         if (Incorrect.size() > 0)
         {
             printf("FAILED IN SAMPLE: %ld\n", Incorrect.size());
-
-            // return 0;
+            // return -1;
         }
         Incorrect = Verify(Test, P, 0);
-        print_poly(P);
+        // print_poly(P);
         printf("----------------------------------------\n");
 
     } while (Incorrect.size() > 0);
-    // Test = GenerateFloatSample(-1, 2, 10);
 
-    // Test = GenerateFloatSample(-1, 0.1, 99999999999);
-    FullTest(P, 2, 20);
+    FullTest(P, LOW, HIGH);
     print_poly(P);
     printf("Finished!\n");
 }

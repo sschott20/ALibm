@@ -41,18 +41,18 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             X.push_back(I);
             // printf("Sample size: %ld\n", n);
 
-            for (int i = 0; i < 6; i++)
-            {
-                h = nextafterf(h, max);
-            }
+            // for (int i = 0; i < 6; i++)
+            // {
+            //     h = nextafterf(h, max);
+            // }
         }
     }
     else
     {
         // long skip = (1 << 16) / sample_size;
-        unsigned long long skip = (1 << 31) / sample_size;
+        // unsigned long long skip = (1 << 31) / sample_size;
 
-        for (h = min; h < max; h = nextafterf(h, max))
+        for (h = (min + max) / 2; h < INFINITY; h = nextafterf(h, max))
         {
             if (h == INFINITY || h == -INFINITY)
             {
@@ -65,16 +65,10 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
 
             n++;
             RndInterval I;
-            // float rand_h = h + (float)rand() / (float)(RAND_MAX / (skip));
             I.x_orig = h;
             I.x_rr = RangeReduction(h);
             X.push_back(I);
-
-            // h += skip;
-            for (int i = 0; i < skip; i++)
-            {
-                h = nextafterf(h, max);
-            }
+            break;
         }
     }
     printf("Sample size: %ld\n", X.size());
@@ -178,10 +172,10 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
         GuessInitial(X.at(i).x_orig, lp, up);
         unsigned long long step = 0x8000000000000llu;
         double oc;
-        // while (step > 0)
-        while (step >= 0x0000000000800llu)
-
+        while (step > 0)
+        // while (step >= 0x0000000000800llu)
         {
+
             doubleX dx;
             dx.d = lp;
             if (dx.d >= 0)
@@ -194,6 +188,7 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
             }
 
             oc = OutputCompensation(I.x_orig, dx.d);
+
             if (oc >= I.l && oc <= I.u)
             {
                 lp = dx.d;
@@ -203,9 +198,10 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
                 step /= 2;
             }
         }
+
         step = 0x8000000000000llu;
-        // while (step > 0)
-        while (step >= 0x0000000000800llu)
+        while (step > 0)
+        // while (step >= 0x0000000000800llu)
         {
             doubleX dx;
             dx.d = up;
@@ -229,16 +225,39 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
             }
         }
 
+        step = 0x0000000000800llu;
+        doubleX dx;
+        dx.d = up;
+        if (dx.d >= 0)
+        {
+            dx.x -= step;
+        }
+        else
+        {
+            dx.x += step;
+        }
+        up = dx.d;
+
+        dx.d = lp;
+        if (dx.d >= 0)
+        {
+            dx.x += step;
+        }
+        else
+        {
+            dx.x -= step;
+        }
+        lp = dx.d;
+
         // printf("x: %4.40f xrr: %4.40f y: %4.40f l: %4.40f u: %4.40f lp: %4.40f up: %4.40f\n", I.x_orig, I.x_rr, I.y, I.l, I.u, lp, up);
 
         oc = OutputCompensation(I.x_orig, lp);
-        // printf("oc: %4.40f\n", oc);
-        assert((float)oc == I.y);
-        oc = OutputCompensation(I.x_orig, up);
-        // printf("oc: %4.40f\n", oc);
         assert((float)oc == I.y);
 
+        oc = OutputCompensation(I.x_orig, up);
+        assert((float)oc == I.y);
         assert(lp <= up);
+
         // fprintf(fptr, "%4.40f %4.40f %4.40f %4.40f %4.40f \n", (double)X.at(i).x_orig, X.at(i).x_rr, X.at(i).y, X.at(i).l, X.at(i).u);
         // fprintf(fptr, "%4.40f %4.40f %4.40f  \n", (double)X.at(i).yp, X.at(i).lp, X.at(i).up);
         I.lp = lp;
@@ -269,7 +288,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
         mysoplex.setRealParam(SoPlex::EPSILON_UPDATE, 0.0);
         mysoplex.setRealParam(SoPlex::EPSILON_PIVOT, 0.0);
         mysoplex.setIntParam(SoPlex::VERBOSITY, 0);
-        mysoplex.setRealParam(SoPlex::TIMELIMIT, 5 * 60);
+        mysoplex.setRealParam(SoPlex::TIMELIMIT, 10 * 60);
         mysoplex.setIntParam(SoPlex::OBJSENSE, SoPlex::OBJSENSE_MINIMIZE);
         DSVectorRational dummycol(0);
 
@@ -333,7 +352,8 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
                 P.coefficients.push_back(0.0);
             }
         }
-        // std::cout << "Status: " << stat << std::endl;
+
+        std::cout << "Status: " << stat << std::endl;
     }
 
     Polynomial N;
@@ -380,6 +400,7 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug = 0)
             RndInterval I;
             I.x_orig = h;
             I.x_rr = range_reduced;
+            // printf("I.x_orig: %4.40f\n", I.x_orig);
             Incorrect.push_back(I);
             if (debug)
             {

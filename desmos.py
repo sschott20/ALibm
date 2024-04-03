@@ -1,7 +1,7 @@
 # read in file poly.txt and print the polynomial where each line a coefficient
 # output of the form a0 + a1x + a2x^2 + ... + anx^n
 
-infile = open("../dump/FPoly.txt", "r")
+infile = open("/home/rlibm-32/IntervalGen/ALibm/dump/FPoly.txt", "r")
 lines = infile.readlines()
 combined = ""
 for line in lines:
