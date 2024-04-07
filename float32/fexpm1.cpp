@@ -21,24 +21,24 @@ int ComputeSpecialCase(float x)
 {
     floatX fx;
     fx.f = x;
-    if (x <= 0.0)
-    {
-        return -1;
-    }
-    else if (fx.x >= 0x7F800000)
-    {
-        return -1;
-    }
-    else if (fx.f == 2.0037834644317626953125000000000000000000)
-    {
-        return -1;
-    }
+    // if (x <= 0.0)
+    // {
+    //     return -1;
+    // }
+    // else if (fx.x >= 0x7F800000)
+    // {
+    //     return -1;
+    // }
+    // else if (fx.f == 2.0037834644317626953125000000000000000000)
+    // {
+    //     return -1;
+    // }
 
     return 0;
 }
 double RangeReduction(float x)
 {
-    // return x;
+    return x;
     // reduces x to [0.5, 1)
     int exp;
     double sig = (double)frexp(x, &exp);
@@ -67,7 +67,7 @@ double RangeReduction(float x)
 
 double OutputCompensation(float x, double yp)
 {
-    // return yp;
+    return yp;
     int exp;
     double sig = (double)frexp(x, &exp);
     return yp + exp;
@@ -99,7 +99,7 @@ double GuessInitial(float x, double &lb, double &ub)
     // lb = log1p(xp) / log(2);
     // ub = log1p(xp) / log(2);
     double xrr = RangeReduction(x);
-    double yp = log2(xrr);
+    double yp = expm1(xrr);
     lb = yp;
     ub = yp;
     return 0;
@@ -108,14 +108,14 @@ double GuessInitial(float x, double &lb, double &ub)
 float EvaluateFunction(mpfr_t y, double x)
 {
     mpfr_set_d(y, x, MPFR_RNDN);
-    mpfr_log2(y, y, MPFR_RNDN);
+    mpfr_expm1(y, y, MPFR_RNDN);
     float h = mpfr_get_flt(y, MPFR_RNDN);
     return h;
 }
 
 #define GROW 10
-#define LOW 1
-#define HIGH 2
+#define LOW 2
+#define HIGH 2.5
 int main()
 {
 
