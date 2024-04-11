@@ -114,13 +114,13 @@ float EvaluateFunction(mpfr_t y, double x)
 }
 
 #define GROW 10
-#define LOW 1
-#define HIGH 2
+#define LOW 2
+#define HIGH 2.1
 int main()
 {
 
     printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(10, LOW, HIGH);
+    vector<RndInterval> X = GenerateFloatSample(1, LOW, HIGH);
 
     printf("Generating all float values...\n");
 

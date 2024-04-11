@@ -12,6 +12,7 @@
 #include <bitset>
 #include <iomanip>
 #include "fhelper.hpp"
+#include <random>
 
 using namespace std;
 using namespace soplex;
@@ -51,9 +52,11 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
     {
         // long skip = (1 << 16) / sample_size;
         // unsigned long long skip = (1 << 31) / sample_size;
+        h = min;
 
-        for (h = (min + max) / 2; h < INFINITY; h = nextafterf(h, max))
+        for (int i = 0; i < sample_size; i++)
         {
+
             if (h == INFINITY || h == -INFINITY)
             {
                 break;
@@ -68,7 +71,10 @@ vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max)
             I.x_orig = h;
             I.x_rr = RangeReduction(h);
             X.push_back(I);
-            break;
+            for (int j = 0; j < 30000; j++)
+            {
+                h = nextafterf(h, max);
+            }
         }
     }
     printf("Sample size: %ld\n", X.size());
@@ -477,4 +483,92 @@ void FullTest(Polynomial P, float min, float max)
     }
 
     printf("Full Test Results, Correct: %ld Incorrect: %ld\n", correct, n - correct);
+}
+
+vector<RndInterval> VerifyAdd(Polynomial P, long last_size, float min, float max)
+{
+    vector<RndInterval> Incorrect;
+    size_t n = 0;
+    size_t incorrect_count = 0;
+
+    for (float h = min; h < max; h = nextafterf(h, max))
+    {
+
+        n++;
+
+        double x = (double)h;
+        double range_reduced = RangeReduction(h);
+        long double eval = EvaulutePoly(P, range_reduced);
+        double oc = OutputCompensation(h, eval);
+        float y = (float)oc;
+
+        mpfr_t y_mpfr;
+        mpfr_inits2(200, y_mpfr, NULL);
+        float oracle = EvaluateFunction(y_mpfr, x);
+        if (y != oracle)
+        {
+            incorrect_count++;
+            RndInterval I;
+            I.x_orig = h;
+            I.x_rr = range_reduced;
+            Incorrect.push_back(I);
+
+            // printf("I.x_orig: %4.40f\n", I.x_orig);
+            // int p = std::max(1, (int)last_size / 40);
+            // if (rand() % p == 0)
+            // {
+            // Incorrect.push_back(I);
+            // }
+        }
+    }
+    printf("Out of sample, Correct: %ld Incorrect: %ld\n", n - incorrect_count, incorrect_count);
+    printf("Size of Incorrect: %ld\n", Incorrect.size());
+    return Incorrect;
+}
+
+void writePolynomialToFile(const Polynomial &poly, const std::string &filename)
+{
+    std::ofstream outFile(filename);
+    if (!outFile)
+    {
+        std::cerr << "Error opening file for writing." << std::endl;
+        return;
+    }
+
+    outFile << poly.termsize << std::endl;
+    for (double coeff : poly.coefficients)
+    {
+        doubleX dx;
+        dx.d = coeff;
+        outFile << dx.x << " ";
+    }
+    outFile << std::endl;
+
+    outFile.close();
+    std::cout << "Polynomial written successfully." << std::endl;
+}
+
+Polynomial readPolynomialFromFile(const std::string &filename)
+{
+    Polynomial poly;
+    std::ifstream inFile(filename);
+    if (!inFile)
+    {
+        std::cerr << "Error opening file for reading." << std::endl;
+        return poly; // Returns an empty polynomial if file opening fails
+    }
+
+    inFile >> poly.termsize;
+    poly.coefficients.resize(poly.termsize);
+
+    for (int i = 0; i < poly.termsize; ++i)
+    {
+        doubleX dx;
+        inFile >> dx.x;
+        poly.coefficients[i] = dx.d;
+    }
+
+    inFile.close();
+    std::cout << "Polynomial read successfully." << std::endl;
+    return poly;
 }
