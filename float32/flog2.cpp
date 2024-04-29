@@ -39,10 +39,11 @@ int ComputeSpecialCase(float x)
 double RangeReduction(float x)
 {
     // return x;
-    // reduces x to [0.5, 1)
+
     int exp;
     double sig = (double)frexp(x, &exp);
     return sig;
+
     // floatX fix, fit;
     // int m = 0;
     // fix.f = x;
@@ -68,9 +69,11 @@ double RangeReduction(float x)
 double OutputCompensation(float x, double yp)
 {
     // return yp;
+
     int exp;
     double sig = (double)frexp(x, &exp);
     return yp + exp;
+
     // floatX fix, fit;
 
     // int m = 0;
@@ -105,78 +108,85 @@ double GuessInitial(float x, double &lb, double &ub)
     return 0;
 }
 
-float EvaluateFunction(mpfr_t y, double x)
+float EvaluateFunction(mpfr_t y, float x)
 {
-    mpfr_set_d(y, x, MPFR_RNDN);
+    mpfr_set_flt(y, x, MPFR_RNDN);
     mpfr_log2(y, y, MPFR_RNDN);
     float h = mpfr_get_flt(y, MPFR_RNDN);
     return h;
 }
 
-#define GROW 10
-#define LOW 2
-#define HIGH 2.1
+#define GROW 100
+#define SPACING 0.1
+#define OVERLAP 0.0001
 int main()
 {
-
-    printf("Generating FloatSample...\n");
-    vector<RndInterval> X = GenerateFloatSample(1, LOW, HIGH);
-
-    printf("Generating all float values...\n");
-
-    vector<RndInterval> Test = GenerateFloatSample(-1, LOW, HIGH);
-    vector<RndInterval> Incorrect;
-    Polynomial P;
-
-    do
+    for (float low = 2; low < 2.1; low += SPACING)
     {
-        if (Incorrect.size() < GROW)
+        float high = low + SPACING + OVERLAP;
+        // printf("Generating FloatSample...\n");
+        vector<RndInterval> X = GenerateFloatSample(1, low, high);
+
+        // printf("Generating all float values...\n");
+
+        vector<RndInterval> Test = GenerateFloatSample(-1, low, high);
+        vector<RndInterval> Incorrect;
+        Polynomial P;
+
+        do
         {
-            for (int i = 0; i < Incorrect.size(); i++)
+            printf("Low: %f, High: %f\n", low, high);
+            if (Incorrect.size() < GROW)
             {
-                RndInterval I = Incorrect.at(i);
-                X.push_back(I);
-            }
-        }
-        else
-        {
-            for (int i = 0; i < GROW; i++)
-            {
-                RndInterval I = Incorrect.at(floor(i * Incorrect.size() / GROW));
-                for (size_t j = 0; j < X.size(); j++)
+                for (int i = 0; i < Incorrect.size(); i++)
                 {
-                    if (X.at(j).x_orig == I.x_orig || X.at(j).x_rr == I.x_rr)
-                    {
-                        printf("Duplicate\n");
-                        break;
-                    }
+                    RndInterval I = Incorrect.at(i);
+                    X.push_back(I);
                 }
-                X.push_back(I);
             }
-        }
-        printf("Sample size: %ld\n", X.size());
-        printf("Generating RndIntervals...\n");
-        vector<RndInterval> L = CalcRndIntervals(X);
+            else
+            {
+                for (int i = 0; i < GROW; i++)
+                {
+                    RndInterval I = Incorrect.at(floor(i * Incorrect.size() / GROW));
+                    for (size_t j = 0; j < X.size(); j++)
+                    {
+                        if (X.at(j).x_orig == I.x_orig || X.at(j).x_rr == I.x_rr)
+                        {
+                            printf("Duplicate\n");
+                            break;
+                        }
+                    }
+                    X.push_back(I);
+                }
+            }
+            printf("Sample size: %ld\n", X.size());
+            // printf("Generating RndIntervals...\n");
+            vector<RndInterval> L = CalcRndIntervals(X);
 
-        printf("Generating RedIntervals...\n");
-        vector<RndInterval> L2 = CalcRedIntervals(L);
+            // printf("Generating RedIntervals...\n");
+            vector<RndInterval> L2 = CalcRedIntervals(L);
 
-        printf("Generating Polynomial...\n");
-        P = GeneratePolynomial(L2);
+            // printf("Generating Polynomial...\n");
+            P = GeneratePolynomial(L2);
 
-        Incorrect = Verify(L2, P, 1);
-        if (Incorrect.size() > 0)
-        {
-            printf("FAILED IN SAMPLE: %ld\n", Incorrect.size());
-            // return -1;
-        }
-        Incorrect = Verify(Test, P, 0);
-        // print_poly(P);
-        printf("----------------------------------------\n");
+            Incorrect = Verify(L2, P, 1);
+            if (Incorrect.size() > 0)
+            {
+                printf("FAILED IN SAMPLE: %ld\n", Incorrect.size());
+                // return -1;
+            }
+            Incorrect = Verify(Test, P, 0);
+            // print_poly(P);
+            printf("----------------------------------------\n");
 
-    } while (Incorrect.size() > 0);
+        } while (Incorrect.size() > 0);
 
-    FullTest(P, LOW, HIGH);
-    print_poly(P);
+        FullTest(P, low, high);
+        std::string filename = "flog2poly/flog2_" + std::to_string(low) + "_" + std::to_string(high) + ".txt";
+        writePolynomialToFile(P, filename);
+        printf("Successfully written to file: %s\n", filename.c_str());
+        print_poly(P);
+    }
     printf("Finished!\n");
 }

@@ -101,7 +101,7 @@ vector<RndInterval> CalcRndIntervals(vector<RndInterval> X)
 
         I.x_orig = X.at(i).x_orig;
         I.x_rr = X.at(i).x_rr;
-        y = EvaluateFunction(y_mpfr, (double)X.at(i).x_orig);
+        y = EvaluateFunction(y_mpfr, X.at(i).x_orig);
 
         float lhalf(nextafterf((float)y, -INFINITY));
         float uhalf(nextafterf((float)y, INFINITY));
@@ -359,7 +359,7 @@ Polynomial GeneratePolynomial(vector<RndInterval> L)
             }
         }
 
-        std::cout << "Status: " << stat << std::endl;
+        // std::cout << "Status: " << stat << std::endl;
     }
 
     Polynomial N;
@@ -400,7 +400,7 @@ vector<RndInterval> Verify(vector<RndInterval> L2, Polynomial P, int debug = 0)
 
         mpfr_t y_mpfr;
         mpfr_inits2(200, y_mpfr, NULL);
-        float oracle = EvaluateFunction(y_mpfr, x);
+        float oracle = EvaluateFunction(y_mpfr, h);
         if (y != oracle)
         {
             RndInterval I;
@@ -464,7 +464,7 @@ void FullTest(Polynomial P, float min, float max)
 
         mpfr_t y_mpfr;
         mpfr_inits2(200, y_mpfr, NULL);
-        float oracle = EvaluateFunction(y_mpfr, x);
+        float oracle = EvaluateFunction(y_mpfr, h);
         if (y != oracle)
         {
             RndInterval I;
@@ -504,7 +504,7 @@ vector<RndInterval> VerifyAdd(Polynomial P, long last_size, float min, float max
 
         mpfr_t y_mpfr;
         mpfr_inits2(200, y_mpfr, NULL);
-        float oracle = EvaluateFunction(y_mpfr, x);
+        float oracle = EvaluateFunction(y_mpfr, h);
         if (y != oracle)
         {
             incorrect_count++;

@@ -60,7 +60,7 @@ void FullTest(Polynomial P, float min = 0.0, float max = INFINITY);
 double RangeReduction(float x);
 double OutputCompensation(float x, double yp);
 double InverseOutputCompensation(float x, double yp);
-float EvaluateFunction(mpfr_t y, double x);
+float EvaluateFunction(mpfr_t y, float x);
 vector<RndInterval> GenerateFloatSample(int sample_size, float min, float max);
 vector<RndInterval> CalcRndIntervals(vector<RndInterval> X);
 vector<RndInterval> CalcRedIntervals(vector<RndInterval> X);
