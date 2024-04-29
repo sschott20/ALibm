@@ -255,9 +255,11 @@ vector<RndInterval> CalcRedIntervals(vector<RndInterval> X)
         }
         lp = dx.d;
 
-        // printf("x: %4.40f xrr: %4.40f y: %4.40f l: %4.40f u: %4.40f lp: %4.40f up: %4.40f\n", I.x_orig, I.x_rr, I.y, I.l, I.u, lp, up);
-
         oc = OutputCompensation(I.x_orig, lp);
+        // printf("lp: %4.40f\n", lp);
+        // printf("up: %4.40f\n", up);
+        // printf("oc: %4.40f\n", oc);
+        // printf("I.y: %4.40f\n", I.y);
         assert((float)oc == I.y);
 
         oc = OutputCompensation(I.x_orig, up);
