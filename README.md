@@ -3,7 +3,7 @@ Fall 2023
 Sebastian (Alex) Schott
 
 
-Full Report: https://shorturl.at/cftuB
+Full Report: https://docs.google.com/document/d/18aQoqCwM4V8EnPv3WZaG5QA2jsTiSpEXtvwtrYlNPJk/edit?usp=sharing
 
 
 ## BACKGROUND
