@@ -1,6 +1,8 @@
 # ALibm 
-Fall 2023
+
 Sebastian (Alex) Schott
+
+Advised by Professor Jay Lim
 
 
 Full Report: https://docs.google.com/document/d/18aQoqCwM4V8EnPv3WZaG5QA2jsTiSpEXtvwtrYlNPJk/edit?usp=sharing
